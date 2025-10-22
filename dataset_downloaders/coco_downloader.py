@@ -67,7 +67,6 @@ class COCODownloader:
             # Prepare download arguments
             download_kwargs = {
                 "split": split,
-                "dataset_dir": str(self.coco_dir),  # Explicitly set dataset directory
             }
             
             if label_types:
