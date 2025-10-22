@@ -13,6 +13,14 @@ python download_all.py download
 
 # Check status
 python download_all.py check
+
+#After download unzip SUN RGBD and Matterport
+# Run from dataset_downloaders directory (auto-detects raw_data)
+./unzip_datasets.sh
+
+# Or specify custom raw_data directory
+./unzip_datasets.sh /path/to/raw_data
+
 ```
 
 ## � What Gets Downloaded
