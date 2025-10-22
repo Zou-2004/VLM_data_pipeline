@@ -160,10 +160,17 @@ class MatterportProcessor:
                 frame_id = img_path.stem
                 
                 # Load camera pose
-                pose_path = pose_dir / f"{frame_id}.txt"
+                # Matterport pose files use format: {base}_pose_{view}_{num}.txt
+                # Image files use format: {base}_i{view}_{num}.jpg
+                pose_path = pose_dir / f"{frame_id.replace('_i', '_pose_')}.txt"
                 camera_extrinsics = None
                 if pose_path.exists():
                     camera_extrinsics = np.loadtxt(pose_path).reshape(4, 4)
+                else:
+                    # Try original format as fallback
+                    pose_path_alt = pose_dir / f"{frame_id}.txt"
+                    if pose_path_alt.exists():
+                        camera_extrinsics = np.loadtxt(pose_path_alt).reshape(4, 4)
                 
                 # Use default intrinsics (Matterport doesn't always provide them)
                 camera_intrinsics = np.array([
