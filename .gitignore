@@ -1,8 +1,15 @@
 # Raw data folders
 raw_data/
+processed_data/
 *.zip
 *.tar.gz
 *.hdf5
+
+# Separate projects
+VLM-3R/
+
+# External dependencies (cloned repositories)
+data_processing/MoGe/
 
 # Python cache
 __pycache__/
@@ -33,3 +40,12 @@ download.log
 # OS
 .DS_Store
 Thumbs.db
+
+# Model cache directories
+hf_cache/
+torch_cache/
+pip_cache/
+tmp/
+
+# Egg info
+*.egg-info/

@@ -25,7 +25,6 @@ class MasterDownloader:
         
         # Dataset configurations
         self.datasets = {
-
             "sunrgbd": {
                 "name": "SUN RGB-D",
                 "script": "sunrgbd_downloader.py",
@@ -38,14 +37,9 @@ class MasterDownloader:
                 "name": "EmbodiedScan-v2",
                 "script": "embodiedscan_downloader.py",
             },
-            
             "coco": {
                 "name": "COCO-2017",
                 "script": "coco_downloader.py",
-            },
-            "hypersim": {
-                "name": "Hypersim",
-                "script": "hypersim_downloader.py",
             },
             "matterport": {
                 "name": "Matterport3D",
