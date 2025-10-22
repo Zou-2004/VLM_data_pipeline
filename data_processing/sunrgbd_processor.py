@@ -38,7 +38,7 @@ def load_intrinsics(intrinsics_path: Path) -> Dict:
 
 def parse_3d_bbox(obj: Dict) -> Optional[Dict]:
     """Parse 3D bounding box from annotation object."""
-    if 'polygon' not in obj or not obj['polygon']:
+    if obj is None or 'polygon' not in obj or not obj['polygon']:
         return None
     
     polygon = obj['polygon'][0]
@@ -81,16 +81,25 @@ def process_scene(scene_path: Path, sensor_type: str, dataset_name: str) -> Opti
     """Process a single SUN RGB-D scene."""
     scene_id = scene_path.name
     
-    # Check required files exist
-    image_path = scene_path / 'image' / f'{scene_id}.jpg'
-    depth_path = scene_path / 'depth' / f'{scene_id}.png'
+    # Find the actual image and depth files (filenames may not match scene_id)
+    image_dir = scene_path / 'image'
+    depth_dir = scene_path / 'depth'
     intrinsics_path = scene_path / 'intrinsics.txt'
-    # Use annotation3Dfinal for final annotations
     annotation_path = scene_path / 'annotation3Dfinal' / 'index.json'
     
-    if not all([image_path.exists(), depth_path.exists(), 
-                intrinsics_path.exists(), annotation_path.exists()]):
-        logger.warning(f"Skipping {scene_id}: Missing required files")
+    # Find the actual image file (usually there's only one)
+    image_files = list(image_dir.glob('*.jpg')) if image_dir.exists() else []
+    depth_files = list(depth_dir.glob('*.png')) if depth_dir.exists() else []
+    
+    if not image_files or not depth_files:
+        logger.warning(f"Skipping {scene_id}: No image or depth files found")
+        return None
+    
+    image_path = image_files[0]
+    depth_path = depth_files[0]
+    
+    if not all([intrinsics_path.exists(), annotation_path.exists()]):
+        logger.warning(f"Skipping {scene_id}: Missing intrinsics or annotations")
         return None
     
     # Load intrinsics
@@ -126,9 +135,7 @@ def process_scene(scene_path: Path, sensor_type: str, dataset_name: str) -> Opti
             bbox_9dof['category'] = bbox['category']
             bboxes_3d.append(bbox_9dof)
     
-    if not bboxes_3d:
-        logger.warning(f"No valid 3D bboxes for {scene_id}")
-        return None
+    # Continue even if no bboxes (some scenes may not have annotated objects)
     
     # Compute depth statistics
     try:
