@@ -160,12 +160,19 @@ def process_scene(scene_path: Path, sensor_type: str, dataset_name: str) -> Opti
         logger.warning(f"Failed to get image dimensions for {scene_id}: {e}")
         image_width, image_height = 640, 480  # Default SUN RGB-D resolution
     
+    # Build intrinsics matrix
+    intrinsics_matrix = [
+        [intrinsics['fx'], 0, intrinsics['cx']],
+        [0, intrinsics['fy'], intrinsics['cy']],
+        [0, 0, 1]
+    ]
+    
     # Create unified JSON
     unified_json = {
         "dataset": "sunrgbd",
         "split": f"{sensor_type}_{dataset_name}",
         "image_id": scene_id,
-        "filename": f"{scene_id}.jpg",
+        "filename": image_path.name,
         "rgb_path": str(image_path.relative_to(scene_path.parent.parent.parent)),
         "depth_path": str(depth_path.relative_to(scene_path.parent.parent.parent)),
         "depth_type": "depth_png_mm",  # PNG format, millimeters
@@ -176,8 +183,8 @@ def process_scene(scene_path: Path, sensor_type: str, dataset_name: str) -> Opti
             "cy": intrinsics['cy'],
             "image_width": image_width,
             "image_height": image_height,
-            "intrinsics": None,
-            "extrinsics": None
+            "intrinsics": intrinsics_matrix,
+            "extrinsics": None  # SUN RGB-D doesn't provide extrinsics
         },
         "depth_stats": depth_stats,
         "bounding_boxes_2d": [],  # SUN RGB-D doesn't provide 2D boxes

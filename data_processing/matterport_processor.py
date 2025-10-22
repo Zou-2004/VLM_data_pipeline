@@ -193,6 +193,15 @@ class MatterportProcessor:
                         
                         bboxes_3d.append(bbox_9dof)
                 
+                # Get image dimensions
+                try:
+                    from PIL import Image
+                    with Image.open(img_path) as img:
+                        image_width, image_height = img.size
+                except Exception as e:
+                    logger.warning(f"Failed to get image dimensions for {img_path.name}: {e}")
+                    image_width, image_height = 1280, 1024  # Default Matterport resolution
+                
                 # Depth not typically available for Matterport
                 depth_map = None
                 
@@ -212,8 +221,8 @@ class MatterportProcessor:
                         "fy": float(camera_intrinsics[1, 1]),
                         "cx": float(camera_intrinsics[0, 2]),
                         "cy": float(camera_intrinsics[1, 2]),
-                        "image_width": None,
-                        "image_height": None,
+                        "image_width": image_width,
+                        "image_height": image_height,
                         "intrinsics": camera_intrinsics.tolist(),
                         "extrinsics": camera_extrinsics.tolist() if camera_extrinsics is not None else None
                     },
