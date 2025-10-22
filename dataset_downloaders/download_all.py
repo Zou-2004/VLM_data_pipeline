@@ -25,29 +25,28 @@ class MasterDownloader:
         
         # Dataset configurations
         self.datasets = {
-            # Already downloaded datasets - commented out for clarity
-            # "sunrgbd": {
-            #     "name": "SUN RGB-D",
-            #     "script": "sunrgbd_downloader.py",
-            # },
-            # "objectron": {
-            #     "name": "Objectron",
-            #     "script": "objectron_downloader.py",
-            # },
-            # "embodiedscan": {
-            #     "name": "EmbodiedScan-v2",
-            #     "script": "embodiedscan_downloader.py",
-            # },
+
+            "sunrgbd": {
+                "name": "SUN RGB-D",
+                "script": "sunrgbd_downloader.py",
+            },
+            "objectron": {
+                "name": "Objectron",
+                "script": "objectron_downloader.py",
+            },
+            "embodiedscan": {
+                "name": "EmbodiedScan-v2",
+                "script": "embodiedscan_downloader.py",
+            },
             
-            # Datasets to download
             "coco": {
                 "name": "COCO-2017",
                 "script": "coco_downloader.py",
             },
-            # "hypersim": {
-            #     "name": "Hypersim",
-            #     "script": "hypersim_downloader.py",
-            # },
+            "hypersim": {
+                "name": "Hypersim",
+                "script": "hypersim_downloader.py",
+            },
             "matterport": {
                 "name": "Matterport3D",
                 "script": "matterport_downloader.py",
