@@ -1,0 +1,35 @@
+# Raw data folders
+raw_data/
+*.zip
+*.tar.gz
+*.hdf5
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Conda/Virtual environments
+env/
+venv/
+ENV/
+conda_env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+download.log
+
+# OS
+.DS_Store
+Thumbs.db
