@@ -19,9 +19,14 @@ class COCODownloader:
         self.output_dir = Path(output_dir)
         self.coco_dir = self.output_dir / "COCO"
         
-        # Set FiftyOne dataset directory to download COCO to our raw_data/COCO folder
+        # Create COCO directory
         self.coco_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Set FiftyOne's default dataset location to our COCO directory
+        # This ensures all downloads go to the correct location
         os.environ['FIFTYONE_DATASET_DIR'] = str(self.coco_dir)
+        os.environ['FIFTYONE_DEFAULT_DATASET_DIR'] = str(self.coco_dir)
+        
         logger.info(f"COCO dataset directory: {self.coco_dir}")
         
     def download(self, split="train", label_types=None, classes=None, max_samples=None):
@@ -41,6 +46,10 @@ class COCODownloader:
             logger.error("FiftyOne not installed. Please run: pip install fiftyone")
             return False
         
+        # Configure FiftyOne to use our directory
+        fo.config.dataset_zoo_dir = str(self.coco_dir)
+        fo.config.default_dataset_dir = str(self.coco_dir)
+        
         logger.info(f"{'='*60}")
         logger.info(f"🚀 DOWNLOADING COCO-2017 DATASET")
         logger.info(f"{'='*60}")
@@ -51,13 +60,14 @@ class COCODownloader:
             logger.info(f"Classes: {classes}")
         if max_samples:
             logger.info(f"Max samples: {max_samples}")
-        logger.info(f"Output: {self.output_dir}")
+        logger.info(f"Output: {self.coco_dir}")
         logger.info(f"{'='*60}")
         
         try:
             # Prepare download arguments
             download_kwargs = {
                 "split": split,
+                "dataset_dir": str(self.coco_dir),  # Explicitly set dataset directory
             }
             
             if label_types:
@@ -67,14 +77,14 @@ class COCODownloader:
             if max_samples:
                 download_kwargs["max_samples"] = max_samples
             
-            # Download dataset (FiftyOne manages its own dataset_dir)
+            # Download dataset
             logger.info("Starting download... This may take a while depending on your selection.")
             dataset = foz.load_zoo_dataset("coco-2017", **download_kwargs)
             
             logger.info(f"\n✅ COCO-2017 downloaded successfully!")
             logger.info(f"📊 Dataset info:")
             logger.info(f"   - Samples: {len(dataset)}")
-            logger.info(f"   - FiftyOne manages dataset location")
+            logger.info(f"   - Location: {self.coco_dir}")
             
             return True
             
