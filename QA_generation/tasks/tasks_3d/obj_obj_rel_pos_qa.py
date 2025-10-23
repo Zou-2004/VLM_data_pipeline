@@ -10,7 +10,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 from typing import List, Dict, Any
 import random
 from utils.qa_base import BaseQAGenerator
-from utils.geometry import get_relative_position_2d
+from utils.geometry import enhanced_relative_position
 from config import TEMPLATE_OBJ_OBJ_REL_POS, QA_PARAMS
 
 
@@ -61,21 +61,24 @@ class ObjectObjectRelativePositionQA(BaseQAGenerator):
         # Get camera parameters
         camera = item.get('camera', {})
         
-        # Get relative position (Near/Far, Left/Right, Up/Down)
-        rel_pos = get_relative_position_2d(bbox1, bbox2, camera)
+        # Get enhanced relative position information
+        rel_pos_info = enhanced_relative_position(bbox1, bbox2, camera)
         
-        if rel_pos is None:
+        if rel_pos_info is None:
             return None
         
-        depth_rel, horizontal_rel, vertical_rel = rel_pos
+        # Extract relationships
+        depth_rel = rel_pos_info.get('depth_relation')
+        horizontal_rel = rel_pos_info.get('horizontal_relation')
+        vertical_rel = rel_pos_info.get('vertical_relation')
         
         # Randomly choose one aspect to ask about
         aspects = []
-        if depth_rel:
+        if depth_rel and depth_rel not in ["Same depth"]:
             aspects.append(('depth', depth_rel))
-        if horizontal_rel:
+        if horizontal_rel and horizontal_rel not in ["Same horizontal position"]:
             aspects.append(('horizontal', horizontal_rel))
-        if vertical_rel:
+        if vertical_rel and vertical_rel not in ["Same vertical position"]:
             aspects.append(('vertical', vertical_rel))
         
         if not aspects:
@@ -86,10 +89,25 @@ class ObjectObjectRelativePositionQA(BaseQAGenerator):
         # Create question based on aspect
         if aspect_type == 'depth':
             question = f"Is the {category1} nearer or farther than the {category2} from the camera?"
+            # Standardize answer format
+            if answer == "Nearer":
+                answer = "nearer"
+            elif answer == "Farther":
+                answer = "farther"
         elif aspect_type == 'horizontal':
             question = f"Is the {category1} to the left or right of the {category2} from the camera's perspective?"
+            # Standardize answer format
+            if answer == "Left":
+                answer = "left"
+            elif answer == "Right":
+                answer = "right"
         else:  # vertical
             question = f"Is the {category1} above or below the {category2} from the camera's perspective?"
+            # Standardize answer format
+            if answer == "Above":
+                answer = "above"
+            elif answer == "Below":
+                answer = "below"
         
         # Create QA pair
         qa_pair = self.create_qa_pair(
@@ -106,7 +124,10 @@ class ObjectObjectRelativePositionQA(BaseQAGenerator):
                 'aspect': aspect_type,
                 'depth_relation': depth_rel,
                 'horizontal_relation': horizontal_rel,
-                'vertical_relation': vertical_rel
+                'vertical_relation': vertical_rel,
+                'center_distance': rel_pos_info.get('center_distance'),
+                'min_distance': rel_pos_info.get('min_distance'),
+                'uses_extrinsics': 'extrinsics' in camera and camera['extrinsics'] is not None
             }
         )
         

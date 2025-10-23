@@ -4,7 +4,7 @@ Based on VLM-3R methodology
 """
 
 import numpy as np
-from typing import Dict, List, Tuple, Optional
+from typing import Dict, List, Tuple, Optional, Any
 
 
 def get_bbox_center(bbox: Dict) -> np.ndarray:
@@ -145,14 +145,21 @@ def get_camera_position(camera_data: Dict) -> Optional[np.ndarray]:
     if 'extrinsics' not in camera_data or camera_data['extrinsics'] is None:
         return None
     
-    extrinsics = np.array(camera_data['extrinsics'])
-    
-    # Camera position is in the last column of extrinsics matrix
-    # But we need to handle both camera-to-world and world-to-camera formats
-    # Typically extrinsics is [R | t] where t is translation
-    camera_pos = extrinsics[:3, 3]
-    
-    return camera_pos
+    try:
+        extrinsics = np.array(camera_data['extrinsics'])
+        
+        # Ensure we have a 4x4 matrix
+        if extrinsics.shape != (4, 4):
+            return None
+        
+        # Camera position from extrinsics matrix
+        # For camera-to-world transform: camera_pos = extrinsics[:3, 3]
+        # For world-to-camera transform: camera_pos = -R.T @ t
+        camera_pos = extrinsics[:3, 3]
+        
+        return camera_pos
+    except Exception:
+        return None
 
 
 def distance_camera_to_bbox(camera_pos: np.ndarray, bbox: Dict) -> float:
@@ -166,15 +173,20 @@ def distance_camera_to_bbox(camera_pos: np.ndarray, bbox: Dict) -> float:
     Returns:
         Minimum distance in meters
     """
-    vertices = get_bbox_vertices(bbox)
-    
-    # Find minimum distance from camera to any vertex
-    min_dist = float('inf')
-    for vertex in vertices:
-        dist = np.linalg.norm(camera_pos - vertex)
-        min_dist = min(min_dist, dist)
-    
-    return min_dist
+    try:
+        vertices = get_bbox_vertices(bbox)
+        
+        # Find minimum distance from camera to any vertex
+        min_dist = float('inf')
+        for vertex in vertices:
+            dist = np.linalg.norm(camera_pos - vertex)
+            min_dist = min(min_dist, dist)
+        
+        return min_dist
+    except Exception:
+        # Fallback: use bbox center
+        center = get_bbox_center(bbox)
+        return np.linalg.norm(camera_pos - center)
 
 
 def transform_bbox_to_camera_frame(bbox: Dict, camera_extrinsics: np.ndarray) -> np.ndarray:
@@ -255,3 +267,231 @@ def get_relative_position_2d(bbox1: Dict, bbox2: Dict, camera_data: Dict) -> Opt
         vertical_rel = 'Down'
     
     return (depth_rel, horizontal_rel, vertical_rel)
+
+
+def get_bbox_2d_params(bbox: Dict) -> Optional[Tuple[float, float, float, float]]:
+    """
+    Extract 2D bbox parameters from various formats
+    
+    Args:
+        bbox: 2D bounding box dictionary
+        
+    Returns:
+        Tuple of (x, y, width, height) or None if not found
+    """
+    # Format 1: Direct x, y, w, h
+    if all(k in bbox for k in ['x', 'y', 'w', 'h']):
+        return (bbox['x'], bbox['y'], bbox['w'], bbox['h'])
+    
+    # Format 2: bbox_2d sub-dictionary
+    if 'bbox_2d' in bbox:
+        bbox_2d = bbox['bbox_2d']
+        if all(k in bbox_2d for k in ['x', 'y', 'width', 'height']):
+            return (bbox_2d['x'], bbox_2d['y'], bbox_2d['width'], bbox_2d['height'])
+    
+    # Format 3: COCO format [x, y, width, height] list
+    if 'bbox' in bbox and isinstance(bbox['bbox'], list) and len(bbox['bbox']) == 4:
+        return tuple(bbox['bbox'])
+    
+    return None
+
+
+def get_2d_bbox_center(bbox: Dict) -> Optional[Tuple[float, float]]:
+    """
+    Get 2D bbox center coordinates
+    
+    Args:
+        bbox: 2D bounding box dictionary
+        
+    Returns:
+        (cx, cy) tuple or None if bbox parameters not found
+    """
+    params = get_bbox_2d_params(bbox)
+    if params is None:
+        return None
+    
+    x, y, w, h = params
+    return (x + w/2, y + h/2)
+
+
+def get_2d_bbox_area(bbox: Dict) -> Optional[float]:
+    """
+    Get 2D bbox area
+    
+    Args:
+        bbox: 2D bounding box dictionary
+        
+    Returns:
+        Area in pixels or None if bbox parameters not found
+    """
+    params = get_bbox_2d_params(bbox)
+    if params is None:
+        # Check if area is directly provided
+        if 'area' in bbox:
+            return bbox['area']
+        return None
+    
+    x, y, w, h = params
+    return w * h
+
+
+def transform_to_world_coordinates(bbox: Dict, extrinsics: np.ndarray) -> Optional[np.ndarray]:
+    """
+    Transform 3D bbox from camera coordinates to world coordinates
+    
+    Args:
+        bbox: 3D bounding box in camera coordinates
+        extrinsics: 4x4 camera extrinsics matrix (camera-to-world)
+        
+    Returns:
+        8x3 array of vertices in world coordinates or None if failed
+    """
+    try:
+        # Get vertices in camera coordinates
+        camera_vertices = get_bbox_vertices(bbox)
+        
+        # Convert to homogeneous coordinates
+        camera_vertices_h = np.hstack([camera_vertices, np.ones((8, 1))])
+        
+        # Transform to world coordinates
+        world_vertices_h = (extrinsics @ camera_vertices_h.T).T
+        
+        # Remove homogeneous coordinate
+        world_vertices = world_vertices_h[:, :3]
+        
+        return world_vertices
+    except Exception:
+        return None
+
+
+def get_camera_orientation(extrinsics: np.ndarray) -> Optional[Dict[str, np.ndarray]]:
+    """
+    Extract camera orientation vectors from extrinsics matrix
+    
+    Args:
+        extrinsics: 4x4 camera extrinsics matrix
+        
+    Returns:
+        Dictionary with 'forward', 'right', 'up' vectors or None if failed
+    """
+    try:
+        if extrinsics.shape != (4, 4):
+            return None
+        
+        # Rotation matrix is top-left 3x3
+        R = extrinsics[:3, :3]
+        
+        # Camera coordinate system (OpenCV convention)
+        # X: right, Y: down, Z: forward (into scene)
+        right = R[:, 0]     # +X direction in world
+        down = R[:, 1]      # +Y direction in world  
+        forward = R[:, 2]   # +Z direction in world
+        
+        return {
+            'right': right,
+            'down': down,
+            'up': -down,        # Up is negative down
+            'forward': forward,
+            'back': -forward
+        }
+    except Exception:
+        return None
+
+
+def improved_distance_camera_to_bbox(camera_data: Dict, bbox: Dict) -> Optional[float]:
+    """
+    Improved camera-to-bbox distance calculation using extrinsics when available
+    
+    Args:
+        camera_data: Camera data dictionary
+        bbox: 3D bounding box dictionary
+        
+    Returns:
+        Distance in meters or None if calculation failed
+    """
+    # Method 1: Use extrinsics for accurate camera position
+    camera_pos = get_camera_position(camera_data)
+    if camera_pos is not None:
+        return distance_camera_to_bbox(camera_pos, bbox)
+    
+    # Method 2: Fallback to bbox center distance (camera at origin)
+    try:
+        center = get_bbox_center(bbox)
+        # Camera is at origin in camera coordinates
+        return np.linalg.norm(center)
+    except Exception:
+        return None
+
+
+def enhanced_relative_position(bbox1: Dict, bbox2: Dict, camera_data: Dict) -> Optional[Dict[str, Any]]:
+    """
+    Enhanced relative position calculation with more detailed spatial relationships
+    
+    Args:
+        bbox1: First bounding box
+        bbox2: Second bounding box
+        camera_data: Camera data with extrinsics
+        
+    Returns:
+        Dictionary with detailed spatial relationships or None if failed
+    """
+    if 'extrinsics' not in camera_data or camera_data['extrinsics'] is None:
+        return None
+    
+    try:
+        extrinsics = np.array(camera_data['extrinsics'])
+        
+        # Transform both bboxes to camera frame for consistent analysis
+        vertices1 = transform_bbox_to_camera_frame(bbox1, extrinsics)
+        vertices2 = transform_bbox_to_camera_frame(bbox2, extrinsics)
+        
+        # Calculate centers and sizes
+        center1 = np.mean(vertices1, axis=0)
+        center2 = np.mean(vertices2, axis=0)
+        
+        # Distance calculations
+        center_distance = np.linalg.norm(center1 - center2)
+        min_distance = min_distance_between_bboxes(bbox1, bbox2)
+        
+        # Relative position in camera frame
+        threshold = 0.1  # meters
+        
+        # Depth relationship (Z-axis: positive is away from camera)
+        depth_diff = center1[2] - center2[2]
+        if abs(depth_diff) < threshold:
+            depth_rel = "Same depth"
+        elif depth_diff < 0:
+            depth_rel = "Nearer"
+        else:
+            depth_rel = "Farther"
+        
+        # Horizontal relationship (X-axis: positive is right)
+        horizontal_diff = center1[0] - center2[0]
+        if abs(horizontal_diff) < threshold:
+            horizontal_rel = "Same horizontal position"
+        elif horizontal_diff < 0:
+            horizontal_rel = "Left"
+        else:
+            horizontal_rel = "Right"
+        
+        # Vertical relationship (Y-axis: positive is down)
+        vertical_diff = center1[1] - center2[1]
+        if abs(vertical_diff) < threshold:
+            vertical_rel = "Same vertical position"
+        elif vertical_diff < 0:
+            vertical_rel = "Above"
+        else:
+            vertical_rel = "Below"
+        
+        return {
+            'depth_relation': depth_rel,
+            'horizontal_relation': horizontal_rel,
+            'vertical_relation': vertical_rel,
+            'center_distance': center_distance,
+            'min_distance': min_distance,
+            'depth_diff': depth_diff,
+            'horizontal_diff': horizontal_diff,
+            'vertical_diff': vertical_diff
+        }
+    except Exception:
+        return None

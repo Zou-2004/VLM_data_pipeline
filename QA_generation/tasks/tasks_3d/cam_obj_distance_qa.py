@@ -9,7 +9,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 
 from typing import List, Dict, Any
 from utils.qa_base import BaseQAGenerator
-from utils.geometry import get_camera_position, distance_camera_to_bbox
+from utils.geometry import improved_distance_camera_to_bbox
 from config import TEMPLATE_CAM_OBJ_DISTANCE, QA_PARAMS
 
 
@@ -28,9 +28,8 @@ class CameraObjectDistanceQA(BaseQAGenerator):
             if 'bounding_boxes_3d' not in item or 'camera' not in item:
                 continue
             
-            # Get camera position
-            camera_pos = get_camera_position(item['camera'])
-            if camera_pos is None:
+            # Skip if no 3D bounding boxes
+            if not item['bounding_boxes_3d']:
                 continue
             
             # Track categories to avoid duplicates
@@ -44,7 +43,7 @@ class CameraObjectDistanceQA(BaseQAGenerator):
                 
                 asked_categories.add(category)
                 
-                qa_pair = self._generate_distance_question(item, bbox, category, camera_pos)
+                qa_pair = self._generate_distance_question(item, bbox, category)
                 if qa_pair:
                     qa_pairs.append(qa_pair)
         
@@ -52,11 +51,14 @@ class CameraObjectDistanceQA(BaseQAGenerator):
         return qa_pairs
     
     def _generate_distance_question(self, item: Dict[str, Any], bbox: Dict[str, Any], 
-                                   category: str, camera_pos) -> Dict[str, Any]:
+                                   category: str) -> Dict[str, Any]:
         """Generate a single camera-object distance question"""
         
-        # Calculate distance
-        distance_m = distance_camera_to_bbox(camera_pos, bbox)
+        # Calculate distance using improved method
+        distance_m = improved_distance_camera_to_bbox(item['camera'], bbox)
+        
+        if distance_m is None:
+            return None
         
         # Skip if too close
         if distance_m < self.params['min_distance']:
@@ -80,7 +82,8 @@ class CameraObjectDistanceQA(BaseQAGenerator):
                 'frame_id': item.get('frame_id', ''),
                 'category': category,
                 'distance_meters': distance_rounded,
-                'unit': 'meters'
+                'unit': 'meters',
+                'uses_extrinsics': 'extrinsics' in item.get('camera', {}) and item['camera']['extrinsics'] is not None
             }
         )
         

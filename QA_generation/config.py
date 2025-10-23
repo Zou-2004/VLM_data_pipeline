@@ -21,8 +21,8 @@ DATASETS = {
         "has_camera_poses": False,
         "has_depth": False,
         "tasks": [
-            "object_count",
-            "bbox_2d_size",
+            "obj_count_2d",
+            "obj_2d_size",
         ]
     },
     "objectron": {
@@ -75,6 +75,14 @@ QA_PARAMS = {
         "min_count": 2,  # Only generate questions for categories with at least 2 instances
         "num_options": 4,  # Number of multiple choice options
         "distractor_offset_range": (-3, 3),  # Range for generating wrong answers
+    },
+    "obj_count_2d": {
+        "min_objects": 1,
+        "max_objects": 20,
+    },
+    "obj_2d_size": {
+        "min_area": 100,  # minimum area in pixels
+        "decimal_places": 1,
     },
     "bbox_2d_size": {
         "num_options": 4,

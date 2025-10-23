@@ -36,6 +36,56 @@ def load_intrinsics(intrinsics_path: Path) -> Dict:
     }
 
 
+def load_extrinsics(extrinsics_dir: Path) -> Optional[List[List[float]]]:
+    """Load camera extrinsics from extrinsics directory.
+    
+    Args:
+        extrinsics_dir: Path to extrinsics directory containing timestamp .txt files
+        
+    Returns:
+        4x4 extrinsics matrix as list of lists, or None if not found
+    """
+    if not extrinsics_dir.exists():
+        return None
+    
+    # Find all extrinsics files
+    extrinsics_files = list(extrinsics_dir.glob('*.txt'))
+    if not extrinsics_files:
+        return None
+    
+    # Use the lexicographically last (most recent) timestamp file
+    extrinsics_file = sorted(extrinsics_files)[-1]
+    
+    try:
+        with open(extrinsics_file, 'r') as f:
+            lines = f.read().strip().split('\n')
+        
+        # Parse the matrix (either 3x4 or 4x4)
+        matrix = []
+        for line in lines:
+            if line.strip():
+                row = [float(x) for x in line.strip().split()]
+                if len(row) >= 3:  # Valid row
+                    matrix.append(row)
+        
+        # Convert to 4x4 if needed
+        if len(matrix) == 3 and len(matrix[0]) == 4:
+            # 3x4 matrix - add bottom row [0, 0, 0, 1]
+            matrix.append([0.0, 0.0, 0.0, 1.0])
+        elif len(matrix) == 4 and len(matrix[0]) == 4:
+            # Already 4x4
+            pass
+        else:
+            logger.warning(f"Invalid extrinsics matrix format in {extrinsics_file}: {len(matrix)}x{len(matrix[0]) if matrix else 0}")
+            return None
+        
+        return matrix
+    
+    except Exception as e:
+        logger.warning(f"Failed to load extrinsics from {extrinsics_file}: {e}")
+        return None
+
+
 def parse_3d_bbox(obj: Dict) -> Optional[Dict]:
     """Parse 3D bounding box from annotation object."""
     if obj is None or 'polygon' not in obj or not obj['polygon']:
@@ -85,6 +135,7 @@ def process_scene(scene_path: Path, sensor_type: str, dataset_name: str) -> Opti
     image_dir = scene_path / 'image'
     depth_dir = scene_path / 'depth'
     intrinsics_path = scene_path / 'intrinsics.txt'
+    extrinsics_dir = scene_path / 'extrinsics'
     annotation_path = scene_path / 'annotation3Dfinal' / 'index.json'
     
     # Find the actual image file (usually there's only one)
@@ -108,6 +159,9 @@ def process_scene(scene_path: Path, sensor_type: str, dataset_name: str) -> Opti
     except Exception as e:
         logger.warning(f"Failed to load intrinsics for {scene_id}: {e}")
         return None
+    
+    # Load extrinsics (optional)
+    extrinsics_matrix = load_extrinsics(extrinsics_dir)
     
     # Load 3D annotations
     try:
@@ -184,7 +238,7 @@ def process_scene(scene_path: Path, sensor_type: str, dataset_name: str) -> Opti
             "image_width": image_width,
             "image_height": image_height,
             "intrinsics": intrinsics_matrix,
-            "extrinsics": None  # SUN RGB-D doesn't provide extrinsics
+            "extrinsics": extrinsics_matrix  # Now loads actual extrinsics data
         },
         "depth_stats": depth_stats,
         "bounding_boxes_2d": [],  # SUN RGB-D doesn't provide 2D boxes
