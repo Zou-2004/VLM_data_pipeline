@@ -24,7 +24,8 @@ import utils
 from utils import (
     create_unified_json,
     save_json,
-    compute_depth_stats
+    compute_depth_stats,
+    convert_bbox_to_9dof
 )
 
 # Set cache directories to avoid filling up home directory
@@ -115,6 +116,119 @@ class COCOProcessor:
             
         except Exception as e:
             logger.warning(f"Failed to estimate depth for {image_path}: {e}")
+            return None
+    
+    def convert_2d_to_3d_bbox(self, bbox_2d: Dict, depth_map: np.ndarray, 
+                             image_width: int, image_height: int) -> Optional[Dict]:
+        """
+        Convert 2D bounding box to 3D using depth information.
+        
+        Args:
+            bbox_2d: 2D bounding box dict with x, y, width, height
+            depth_map: Depth map (H, W)
+            image_width: Image width
+            image_height: Image height
+            
+        Returns:
+            3D bounding box dict or None if conversion fails
+        """
+        try:
+            # Get 2D bbox coordinates
+            x = bbox_2d["bbox_2d"]["x"]
+            y = bbox_2d["bbox_2d"]["y"]
+            w = bbox_2d["bbox_2d"]["width"] 
+            h = bbox_2d["bbox_2d"]["height"]
+            
+            # Convert to integer pixel coordinates
+            x1 = max(0, int(x))
+            y1 = max(0, int(y))
+            x2 = min(image_width, int(x + w))
+            y2 = min(image_height, int(y + h))
+            
+            if x2 <= x1 or y2 <= y1:
+                return None
+            
+            # Extract depth values within the bounding box
+            depth_roi = depth_map[y1:y2, x1:x2]
+            
+            # Filter out invalid depth values (typically 0 or very large values)
+            valid_depths = depth_roi[(depth_roi > 0.1) & (depth_roi < 100.0)]
+            
+            if len(valid_depths) < 10:  # Need at least 10 valid depth pixels
+                return None
+            
+            # Use median depth as the object's depth (more robust than mean)
+            median_depth = np.median(valid_depths)
+            
+            # Additional validation - reject if depth seems unreasonable
+            if median_depth < 0.5 or median_depth > 50.0:
+                return None
+            
+            # Estimate camera intrinsics (COCO doesn't provide them)
+            # Use typical values for consumer cameras with some scaling
+            fx = image_width * 0.7  # Rough estimate: focal length ≈ 0.7 * image width
+            fy = image_height * 0.7
+            cx = image_width / 2.0
+            cy = image_height / 2.0
+            
+            # Convert 2D bbox corners to 3D using camera projection
+            # Center of the 2D bbox
+            bbox_center_x = x + w / 2.0
+            bbox_center_y = y + h / 2.0
+            
+            # Project to 3D coordinates
+            x3d_center = (bbox_center_x - cx) * median_depth / fx
+            y3d_center = (bbox_center_y - cy) * median_depth / fy
+            z3d_center = median_depth
+            
+            # Estimate 3D dimensions by projecting bbox corners
+            x3d_min = (x - cx) * median_depth / fx
+            x3d_max = (x + w - cx) * median_depth / fx
+            y3d_min = (y - cy) * median_depth / fy
+            y3d_max = (y + h - cy) * median_depth / fy
+            
+            width_3d = abs(x3d_max - x3d_min)
+            height_3d = abs(y3d_max - y3d_min)
+            
+            # Estimate depth dimension based on object category and size
+            # This is a heuristic - use depth variance in the bbox region for better estimation
+            depth_variation = np.std(valid_depths)
+            depth_3d = max(min(width_3d, height_3d) * 0.8, depth_variation * 2.0)
+            
+            # Minimum size constraints to avoid tiny objects
+            min_size = 0.05  # 5cm minimum
+            if width_3d < min_size or height_3d < min_size or depth_3d < min_size:
+                return None
+            
+            # Create 3D bbox dict
+            bbox_3d = {
+                "category": bbox_2d["category"],
+                "category_id": bbox_2d.get("category_id"),
+                "center": [float(x3d_center), float(y3d_center), float(z3d_center)],
+                "dimensions": [float(width_3d), float(height_3d), float(depth_3d)],
+                "rotation": [0.0, 0.0, 0.0],  # No rotation information available
+                "confidence": 0.7,  # Moderate confidence for depth-based estimation
+                "method": "depth_projection"
+            }
+            
+            # Convert to 9-DoF format
+            bbox_9dof = convert_bbox_to_9dof(
+                center=bbox_3d["center"],
+                dimensions=bbox_3d["dimensions"], 
+                rotation=bbox_3d["rotation"],
+                rotation_format='euler'
+            )
+            
+            # Add metadata
+            bbox_9dof["category"] = bbox_3d["category"]
+            bbox_9dof["category_id"] = bbox_3d.get("category_id")
+            bbox_9dof["confidence"] = bbox_3d["confidence"]
+            bbox_9dof["method"] = bbox_3d["method"]
+            
+            return bbox_9dof
+            
+        except Exception as e:
+            logger.warning(f"Failed to convert 2D bbox to 3D: {e}")
             return None
     
     def load_coco_annotations(self, split: str = "validation") -> Dict:
@@ -223,11 +337,26 @@ class COCOProcessor:
             # Estimate depth (optional)
             depth_stats = None
             depth_type = "none"
+            depth_map = None
+            
             if self.depth_model:
                 depth_map = self.estimate_depth(img_path)
                 if depth_map is not None:
                     depth_stats = compute_depth_stats(depth_map)
                     depth_type = "pseudo"
+            
+            # Convert 2D bboxes to 3D - skip images without depth or 3D conversions
+            bboxes_3d = []
+            if depth_map is not None:
+                for bbox_2d in bboxes_2d:
+                    bbox_3d = self.convert_2d_to_3d_bbox(bbox_2d, depth_map, width, height)
+                    if bbox_3d is not None:
+                        bboxes_3d.append(bbox_3d)
+            
+            # Skip images that don't have any 3D bboxes
+            if len(bboxes_3d) == 0:
+                logger.info(f"  Skipping {filename}: No valid 3D bboxes generated")
+                continue
             
             # Create unified JSON
             unified_data = {
@@ -249,8 +378,8 @@ class COCOProcessor:
                     "extrinsics": None
                 },
                 "depth_stats": depth_stats,
-                "bounding_boxes_2d": bboxes_2d,
-                "bounding_boxes_3d": []  # COCO has no 3D boxes
+                "bounding_boxes_2d": [],  # Remove 2D annotations - only keep 3D
+                "bounding_boxes_3d": bboxes_3d
             }
             
             # Save per-image JSON
@@ -266,6 +395,7 @@ class COCOProcessor:
         
         total_images = 0
         total_annotations = 0
+        total_3d_bboxes = 0
         processed_splits = []
         
         # Check which splits are available and have labels
@@ -295,27 +425,31 @@ class COCOProcessor:
                 split_files = list(split_output.glob("*.json"))
                 split_images = len(split_files)
                 split_annotations = 0
+                split_3d_bboxes = 0
                 
                 # Count annotations
                 for f in split_files:
                     try:
                         data = json.load(open(f))
-                        split_annotations += len(data.get("bounding_boxes_2d", []))
+                        split_annotations += len(data.get("bounding_boxes_2d", []))  # Keep for backward compatibility stats
+                        split_3d_bboxes += len(data.get("bounding_boxes_3d", []))
                     except Exception as e:
                         logger.warning(f"Error reading {f}: {e}")
                 
                 total_images += split_images
                 total_annotations += split_annotations
+                total_3d_bboxes += split_3d_bboxes
                 processed_splits.append(split)
                 
-                logger.info(f"  {split}: {split_images} images, {split_annotations} annotations")
+                logger.info(f"  {split}: {split_images} images, {split_3d_bboxes} 3D bboxes")
         
         # Save summary
         summary = {
             "dataset": "coco",
             "processed_splits": processed_splits,
             "total_images": total_images,
-            "total_annotations": total_annotations,
+            "total_2d_annotations": total_annotations,
+            "total_3d_bboxes": total_3d_bboxes,
             "depth_type": "pseudo" if self.depth_model else "none",
             "processing_date": datetime.now().isoformat(),
             "output_directory": str(self.output_dir)
@@ -325,7 +459,7 @@ class COCOProcessor:
         logger.info(f"\n✅ COCO processing complete!")
         logger.info(f"   Processed splits: {', '.join(processed_splits)}")
         logger.info(f"   Total images: {total_images}")
-        logger.info(f"   Total annotations: {total_annotations}")
+        logger.info(f"   Total 3D bboxes: {total_3d_bboxes}")
         logger.info(f"   Output: {self.output_dir}")
 
 

@@ -28,24 +28,26 @@ class ObjectCount2DQA(BaseQAGenerator):
         qa_pairs = []
         
         for item in data:
-            if 'bounding_boxes_2d' not in item:
+            # Check for 2D bboxes first, fallback to 3D bboxes for counting
+            bboxes_2d = item.get('bounding_boxes_2d', [])
+            bboxes_3d = item.get('bounding_boxes_3d', [])
+            
+            # Skip if no bounding boxes at all
+            if not bboxes_2d and not bboxes_3d:
                 continue
             
-            # Skip if no 2D bounding boxes
-            if not item['bounding_boxes_2d']:
-                continue
+            # Use 2D bboxes if available, otherwise use 3D bboxes for counting
+            bboxes = bboxes_2d if bboxes_2d else bboxes_3d
             
-            qa_pair = self._generate_count_question(item)
+            qa_pair = self._generate_count_question(item, bboxes)
             if qa_pair:
                 qa_pairs.append(qa_pair)
         
         self.add_qa_pairs(qa_pairs)
         return qa_pairs
     
-    def _generate_count_question(self, item: Dict[str, Any]) -> Dict[str, Any]:
-        """Generate a single object counting question"""
-        
-        bboxes = item['bounding_boxes_2d']
+    def _generate_count_question(self, item: Dict[str, Any], bboxes: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Generate a single counting question"""
         
         # Count objects by category
         category_counts = Counter()

@@ -15,14 +15,18 @@ CACHE_DIR = os.environ.get('QA_CACHE_DIR', os.path.join(os.path.expanduser('~'),
 
 # Dataset configurations
 DATASETS = {
-    "coco": {
+        "coco": {
         "data_dir": os.path.join(PROCESSED_DATA_DIR, "coco"),
-        "has_3d": False,
-        "has_camera_poses": False,
-        "has_depth": False,
+        "has_3d": True,
+        "has_camera_poses": False,  # No extrinsics available
+        "has_depth": False,  # Uses pseudo-depth
         "tasks": [
-            "obj_count_2d",
-            "obj_2d_size",
+            # Only tasks that don't require camera pose/extrinsics
+            "object_count",        # ✓ No camera pose needed
+            "object_3d_size",      # ✓ Works with metric bbox dimensions
+            "obj_obj_distance",    # ✓ Works with same-frame coordinates
+            # Removed: cam_obj_distance, cam_obj_rel_dist, obj_obj_rel_pos
+            # These require camera pose/extrinsics which COCO lacks
         ]
     },
     "objectron": {
