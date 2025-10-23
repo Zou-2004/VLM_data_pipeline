@@ -63,10 +63,11 @@ cd ..
 ### 4. Configure cache directories (important for disk space)
 
 ```bash
-export HF_HOME=/mnt/sdd/hf_cache
-export TORCH_HOME=/mnt/sdd/torch_cache
-export TMPDIR=/mnt/sdd/tmp
-export PIP_CACHE_DIR=/mnt/sdd/pip_cache
+# Optional: Set cache directories to control where large files are stored
+export HF_HOME=/path/to/hf_cache
+export TORCH_HOME=/path/to/torch_cache
+export TMPDIR=/path/to/tmp
+export PIP_CACHE_DIR=/path/to/pip_cache
 ```
 
 Add these to your `~/.bashrc` to make them permanent.

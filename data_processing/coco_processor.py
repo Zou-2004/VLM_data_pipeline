@@ -27,10 +27,15 @@ from utils import (
     compute_depth_stats
 )
 
-# Set cache directories to /mnt/sdd
-os.environ['HF_HOME'] = '/mnt/sdd/hf_cache'
-os.environ['TORCH_HOME'] = '/mnt/sdd/torch_cache'
-os.environ['TMPDIR'] = '/mnt/sdd/tmp'
+# Set cache directories to avoid filling up home directory
+cache_base = os.environ.get('PIPELINE_CACHE_DIR', '/tmp')
+os.environ['HF_HOME'] = os.path.join(cache_base, 'huggingface')
+os.environ['TORCH_HOME'] = os.path.join(cache_base, 'torch')
+os.environ['TMPDIR'] = os.path.join(cache_base, 'tmp')
+
+# Create cache directories if they don't exist
+for cache_dir in [os.environ['HF_HOME'], os.environ['TORCH_HOME'], os.environ['TMPDIR']]:
+    os.makedirs(cache_dir, exist_ok=True)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

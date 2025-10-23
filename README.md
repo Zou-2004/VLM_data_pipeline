@@ -1,267 +1,200 @@
 # VLM 3D Data Pipeline
 
-A comprehensive data processing pipeline for extracting 3D annotations from multiple vision datasets to train Vision Language Models (VLMs) with spatial reasoning capabilities.
+A comprehensive data processing and QA generation pipeline for training Vision Language Models (VLMs) with spatial reasoning capabilities.
 
-## 🎯 Overview
+## Overview
 
-This pipeline processes 4 major 3D vision datasets into a unified JSON format with standardized 9-DoF bounding boxes, camera parameters, and depth information. The output is designed for training VLMs that can understand and reason about 3D spatial relationships.
+This pipeline processes 4 major 3D vision datasets into a unified JSON format and generates VLM-3R style spatial reasoning questions. The complete pipeline includes:
+- Dataset processing with standardized 3D bounding boxes and camera parameters
+- Automated QA generation for spatial reasoning tasks
+- Support for both 2D and 3D spatial understanding
 
 ### Key Features
 
-- **Unified 9-DoF Bounding Box Format**: All 3D annotations converted to (x, y, z, xl, yl, zl, pitch, yaw, roll)
-- **VST Camera Frame Convention**: Consistent coordinate system (origin at camera, +X right, +Y down, +Z forward)
+- **Unified Data Format**: Standardized 3D bounding boxes and camera parameters across all datasets
+- **QA Generation**: Automated creation of 485K+ spatial reasoning questions in VLM-3R style
 - **Multiple Depth Types**: Metric depth, depth maps, and MoGe-2 pseudo-depth
-- **4 Diverse Datasets**: ~19,455 images with ~50,000+ 3D bounding boxes
-- **Automated Processing**: One-command pipeline for all datasets
+- **4 Diverse Datasets**: 19,455 images with 50,000+ 3D bounding boxes
+- **Complete Pipeline**: One-command processing and QA generation
 
-## 📊 Supported Datasets
+## Supported Datasets
 
-| Dataset | Images | 3D Bboxes | 2D Bboxes | Depth Type | Status |
-|---------|--------|-----------|-----------|------------|--------|
-| **SUN RGB-D** | 1,449 | 12,315 | - | depth_png_mm | ✅ |
-| **Matterport3D** | 4,932 | ~24,462 | - | none | ✅ |
-| **Objectron** | 13,024 | ~13,284 | - | none | ✅ |
-| **COCO** | 50 | - | 427 | pseudo (MoGe-2) | ✅ |
-| **Total** | **~19,455** | **~50,061** | **427** | - | - |
+| Dataset | Images | 3D Bboxes | 2D Bboxes | QA Pairs | Depth Type |
+|---------|--------|-----------|-----------|----------|------------|
+| **SUN RGB-D** | 7,243 | 48,542 | - | 234,503 | depth_png_mm |
+| **Matterport3D** | 4,932 | 24,462 | - | 222,785 | none |
+| **Objectron** | 13,024 | 13,284 | - | 27,809 | none |
+| **COCO** | 50 | - | 427 | 232 | pseudo (MoGe-2) |
+| **Total** | **25,249** | **86,288** | **427** | **485,329** | - |
 
-### Dataset Details
+### QA Generation Tasks
 
-- **SUN RGB-D**: Real-world indoor RGB-D scenes from multiple sensors (Kinect v1/v2, RealSense, Xtion)
-- **Matterport3D**: High-quality real-world indoor scenes with corrected 3D bboxes from EmbodiedScan
-- **Objectron**: Mobile-captured object-centric video frames with protobuf annotations
-- **COCO**: Large-scale 2D object detection with MoGe-2 depth estimation
+- **Object Count**: Multiple choice questions about object instances
+- **3D Object Size**: Maximum dimension of 3D objects (in centimeters)
+- **2D Bbox Size**: Area of 2D bounding boxes (pixels)
+- **Distance**: Camera-to-object and object-to-object distances
+- **Relative Position**: Near/Far, Left/Right, Up/Down spatial relationships
+- **Closest Object**: Which object is nearest to camera
 
-## 🚀 Quick Start
+## Quick Start
 
 ### 1. Setup Environment
 
 ```bash
-# Create conda environment
+# (Optional) Configure cache directories for large files
+export QA_CACHE_DIR="/path/to/cache/qa_generation"     # Default: ~/qa_generation_cache
+export PIPELINE_CACHE_DIR="/path/to/cache/pipeline"    # Default: /tmp
+
+# Create conda environment (or use any Python 3.8+ environment)
 conda create -n data_pipeline python=3.11
 conda activate data_pipeline
-
-# Clone repository
-git clone https://github.com/yourusername/VLM_data_pipeline.git
-cd VLM_data_pipeline
 
 # Install dependencies
 cd data_processing
 pip install -r requirements.txt
 
-# Clone and install MoGe-2 for COCO depth estimation
+# Clone MoGe-2 for COCO depth estimation
 git clone https://github.com/microsoft/MoGe.git
-cd MoGe
-pip install -r requirements.txt
-cd ../..
+cd MoGe && pip install -r requirements.txt && cd ..
 ```
 
-### 2. Configure Cache Directories
+### 2. Download and Process Datasets
 
 ```bash
-# Add to ~/.bashrc to avoid filling up home disk
-export HF_HOME=/mnt/sdd/hf_cache
-export TORCH_HOME=/mnt/sdd/torch_cache
-export TMPDIR=/mnt/sdd/tmp
-export PIP_CACHE_DIR=/mnt/sdd/pip_cache
-```
-
-### 3. Download Datasets
-
-```bash
+# Download datasets
 cd dataset_downloaders
 python download_all.py download
-
-# Unzip SUN RGB-D and Matterport
 ./unzip_datasets.sh
 cd ..
-```
 
-### 4. Process All Datasets
-
-```bash
+# Process all datasets
 cd data_processing
 python process_all.py --raw-data-dir ../raw_data --output-dir ../processed_data
 ```
 
-## 📁 Project Structure
+### 3. Generate QA Pairs
+
+```bash
+cd QA_generation
+python generate_qa.py --all
+```
+
+**💡 For detailed portable setup across different machines, see [QA_generation/PORTABLE_SETUP.md](QA_generation/PORTABLE_SETUP.md)**
+
+## Project Structure
 
 ```
 VLM_data_pipeline/
 ├── README.md                    # This file
 ├── data_processing/             # Dataset processors
-│   ├── README.md                # Detailed processing documentation
-│   ├── requirements.txt         # Python dependencies
 │   ├── process_all.py           # Master processing script
 │   ├── coco_processor.py        # COCO with MoGe-2 depth
 │   ├── sunrgbd_processor.py     # SUN RGB-D processor
 │   ├── matterport_processor.py  # Matterport3D with EmbodiedScan
 │   ├── objectron_processor.py   # Objectron protobuf parser
-│   ├── utils.py                 # Common utilities
-│   ├── MoGe/                    # MoGe-2 depth estimation model
-│   └── objectron/               # Objectron protobuf schemas
+│   └── MoGe/                    # MoGe-2 depth estimation model
 ├── dataset_downloaders/         # Dataset download scripts
-│   ├── README.md                # Download documentation
-│   ├── download_all.py          # Master download script
-│   ├── coco_downloader.py
-│   ├── sunrgbd_downloader.py
-│   ├── matterport_downloader.py
-│   ├── objectron_downloader.py
-│   └── embodiedscan_downloader.py
+│   └── download_all.py          # Master download script
+├── QA_generation/               # QA generation pipeline
+│   ├── generate_qa.py           # Main QA generation script
+│   ├── config.py                # Question templates and parameters
+│   ├── utils/                   # Data loading and geometry utilities
+│   ├── tasks/                   # Task-specific QA generators
+│   └── output/                  # Generated QA pairs (485K+ questions)
 ├── raw_data/                    # Downloaded raw datasets
-│   ├── COCO/
-│   ├── SUNRGBD/
-│   ├── Objectron/
-│   ├── embodiedscan-v2/
-│   └── v1/ (Matterport3D)
-└── processed_data/              # Processed output
-    ├── coco/
-    ├── sunrgbd/
-    ├── matterport/
-    └── objectron/
+└── processed_data/              # Processed output (25K+ images)
 ```
 
-## 📝 Output Format
+## Output Format
 
-Each processed image generates a JSON file with this structure:
+### Processed Data
+Each image generates a JSON file with camera parameters, depth information, and 3D bounding boxes in unified format.
+
+### QA Pairs
+Generated questions follow VLM-3R style with multiple choice and numerical answers:
 
 ```json
 {
-  "dataset": "sunrgbd",
-  "scene_id": "kv1_NYUdata/NYU0001",
-  "image_id": "000001",
-  "rgb_path": "images/000001.jpg",
-  "depth_path": "depth/000001.png",
-  "depth_type": "depth_png_mm",
-  "camera": {
-    "intrinsics": {
-      "fx": 886.81, "fy": 886.81,
-      "cx": 512.0, "cy": 384.0
-    },
-    "extrinsics": {
-      "position": [0.0, 0.0, 0.0],
-      "rotation": [0.0, 0.0, 0.0]
-    },
-    "image_width": 1024,
-    "image_height": 768
-  },
-  "depth_stats": {
-    "min": 0.5, "max": 10.0,
-    "mean": 3.2, "median": 3.0
-  },
-  "bounding_boxes_3d": [
-    {
-      "object_id": "chair_01",
-      "category": "chair",
-      "center": [1.5, 0.5, 3.0],
-      "size": [0.6, 0.8, 0.6],
-      "rotation": [0.0, 0.17, 0.0]
-    }
-  ]
+  "question": "How many chairs are in the image?",
+  "answer": "C",
+  "answer_type": "multiple_choice",
+  "task": "object_count",
+  "dataset": "matterport",
+  "options": {"A": 2, "B": 5, "C": 3, "D": 1},
+  "metadata": {
+    "source_file": "17DRP5sb8fy/rgb_00001.json",
+    "category": "chair",
+    "correct_count": 3
+  }
 }
 ```
 
-### Coordinate System
-
-All bounding boxes use the **VST camera frame**:
-- **Origin**: Camera center
-- **+X**: Right
-- **+Y**: Down
-- **+Z**: Forward (into the scene)
-
-### 9-DoF Bounding Box
-
-- `center`: (x, y, z) in meters, camera frame
-- `size`: (xl, yl, zl) dimensions in meters
-- `rotation`: (pitch, yaw, roll) normalized to [-1, 1] by dividing by 180°
-
-## 🔧 Advanced Usage
+## Advanced Usage
 
 ### Process Specific Datasets
-
 ```bash
 python process_all.py --datasets sunrgbd matterport
+python generate_qa.py --dataset coco
 ```
 
-### Custom Output Directory
+### Generate Specific QA Tasks
+```bash
+python generate_qa.py --dataset objectron --tasks object_count object_3d_size
+```
 
+### Custom Output Directories
 ```bash
 python process_all.py --output-dir /custom/path/processed_data
+python generate_qa.py --output-dir /custom/path/qa_output
 ```
 
-### Individual Dataset Processing
+## Dependencies
 
-```python
-from sunrgbd_processor import SUNRGBDProcessor
-
-processor = SUNRGBDProcessor(
-    raw_data_dir="raw_data/SUNRGBD",
-    output_dir="processed_data/sunrgbd"
-)
-processor.process_all()
-```
-
-## 📦 Dependencies
-
-### Core Requirements
 - Python 3.11+
 - PyTorch 2.0+
-- NumPy, SciPy, Pillow
+- NumPy, SciPy, Pillow, tqdm
 - h5py (for HDF5 files)
 - protobuf, grpcio-tools (for Objectron)
 - pycocotools (for COCO)
-
-### Optional Requirements
 - MoGe-2 dependencies (for COCO depth estimation)
-  - Install from `data_processing/MoGe/requirements.txt`
 
-See `data_processing/requirements.txt` for complete list.
+See `data_processing/requirements.txt` and `QA_generation/requirements.txt` for complete lists.
 
-## 🐛 Troubleshooting
+## Troubleshooting
 
-### Disk Space Issues
+### Disk Space
 The pipeline requires significant disk space:
 - Raw datasets: ~40-60GB
 - Processed data: ~20-30GB
 - Model cache (MoGe-2): ~1.3GB
+- QA output: ~500MB
 
-Make sure to configure cache directories on a partition with sufficient space.
-
-### MoGe-2 Model Download
-The model will auto-download on first COCO processing run. Ensure:
-- Internet connectivity
-- ~1.3GB free space in `$HF_HOME`
-- Hugging Face hub access
-
-### Objectron Protobuf
-Protobuf schemas are pre-compiled in `data_processing/objectron/schema/`. If you encounter issues, recompile:
+Configure cache directories to avoid filling home disk:
 ```bash
-cd data_processing/objectron
-python -m grpc_tools.protoc -I. --python_out=schema/ *.proto
+# Alternative: Set environment variables for cache control
+export HF_HOME=/path/to/hf_cache
+export TORCH_HOME=/path/to/torch_cache
 ```
 
 ### Memory Issues
 For large-scale processing:
 - Process datasets one at a time
+- Use `--limit` parameter for testing
 - Reduce MoGe-2 batch size in `coco_processor.py`
-- Limit images per run in individual processors
 
-## 📚 Documentation
+## Documentation
 
 - **Processing Guide**: `data_processing/README.md`
-- **Download Guide**: `dataset_downloaders/README.md`
+- **QA Generation Guide**: `QA_generation/USAGE_GUIDE.md`
 - **Dataset Format Notes**: `data_processing/DATASET_FORMAT_NOTES.md`
-- **Implementation Status**: `data_processing/IMPLEMENTATION_STATUS.md`
 
-## 📄 License
+## License
 
 This project is licensed under the MIT License. See individual dataset licenses for usage restrictions.
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
 - **MoGe-2**: [microsoft/MoGe](https://github.com/microsoft/MoGe)
 - **EmbodiedScan**: [EmbodiedScan-v2](https://github.com/OpenRobotLab/EmbodiedScan)
+- **VLM-3R**: Question format and methodology
 - **Datasets**: COCO, SUN RGB-D, Matterport3D, Objectron
-
-## 📧 Contact
-
-For questions or issues, please open a GitHub issue.

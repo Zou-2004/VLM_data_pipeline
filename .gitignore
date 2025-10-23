@@ -5,6 +5,10 @@ processed_data/
 *.tar.gz
 *.hdf5
 
+# QA Generation Output Files (too large for GitHub)
+QA_generation/output/
+QA_generation/generation_log.txt
+
 # Separate projects
 VLM-3R/
 
