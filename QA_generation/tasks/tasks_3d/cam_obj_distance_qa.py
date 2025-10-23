@@ -10,6 +10,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 from typing import List, Dict, Any
 from utils.qa_base import BaseQAGenerator
 from utils.geometry import improved_distance_camera_to_bbox
+from utils.class_mapping import parse_class_category
 from config import TEMPLATE_CAM_OBJ_DISTANCE, QA_PARAMS
 
 
@@ -67,8 +68,11 @@ class CameraObjectDistanceQA(BaseQAGenerator):
         # Round to specified decimal places
         distance_rounded = round(distance_m, self.params['decimal_places'])
         
-        # Create question
-        question = TEMPLATE_CAM_OBJ_DISTANCE.format(category=category)
+        # Convert class_X format to human-readable name
+        readable_category = parse_class_category(category)
+        
+        # Create question using readable category name
+        question = TEMPLATE_CAM_OBJ_DISTANCE.format(category=readable_category)
         
         # Create QA pair (numerical answer)
         qa_pair = self.create_qa_pair(
@@ -81,6 +85,7 @@ class CameraObjectDistanceQA(BaseQAGenerator):
                 'scene_id': item.get('scene_id', ''),
                 'frame_id': item.get('frame_id', ''),
                 'category': category,
+                'readable_category': readable_category,
                 'distance_meters': distance_rounded,
                 'unit': 'meters',
                 'uses_extrinsics': 'extrinsics' in item.get('camera', {}) and item['camera']['extrinsics'] is not None

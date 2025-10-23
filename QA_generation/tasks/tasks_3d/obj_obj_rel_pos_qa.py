@@ -11,6 +11,7 @@ from typing import List, Dict, Any
 import random
 from utils.qa_base import BaseQAGenerator
 from utils.geometry import enhanced_relative_position
+from utils.class_mapping import parse_class_category
 from config import TEMPLATE_OBJ_OBJ_REL_POS, QA_PARAMS
 
 
@@ -86,23 +87,27 @@ class ObjectObjectRelativePositionQA(BaseQAGenerator):
         
         aspect_type, answer = random.choice(aspects)
         
+        # Convert class_X format to human-readable names
+        readable_category1 = parse_class_category(category1)
+        readable_category2 = parse_class_category(category2)
+        
         # Create question based on aspect
         if aspect_type == 'depth':
-            question = f"Is the {category1} nearer or farther than the {category2} from the camera?"
+            question = f"Is the {readable_category1} nearer or farther than the {readable_category2} from the camera?"
             # Standardize answer format
             if answer == "Nearer":
                 answer = "nearer"
             elif answer == "Farther":
                 answer = "farther"
         elif aspect_type == 'horizontal':
-            question = f"Is the {category1} to the left or right of the {category2} from the camera's perspective?"
+            question = f"Is the {readable_category1} to the left or right of the {readable_category2} from the camera's perspective?"
             # Standardize answer format
             if answer == "Left":
                 answer = "left"
             elif answer == "Right":
                 answer = "right"
         else:  # vertical
-            question = f"Is the {category1} above or below the {category2} from the camera's perspective?"
+            question = f"Is the {readable_category1} above or below the {readable_category2} from the camera's perspective?"
             # Standardize answer format
             if answer == "Above":
                 answer = "above"
@@ -121,6 +126,8 @@ class ObjectObjectRelativePositionQA(BaseQAGenerator):
                 'frame_id': item.get('frame_id', ''),
                 'object1_category': category1,
                 'object2_category': category2,
+                'object1_readable_category': readable_category1,
+                'object2_readable_category': readable_category2,
                 'aspect': aspect_type,
                 'depth_relation': depth_rel,
                 'horizontal_relation': horizontal_rel,

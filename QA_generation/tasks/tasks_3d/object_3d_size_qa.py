@@ -10,6 +10,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 from typing import List, Dict, Any
 from utils.qa_base import BaseQAGenerator
 from utils.geometry import get_max_dimension
+from utils.class_mapping import parse_class_category
 from config import TEMPLATE_OBJECT_3D_SIZE, QA_PARAMS
 
 
@@ -50,12 +51,15 @@ class Object3DSizeQA(BaseQAGenerator):
     def _generate_size_question(self, item: Dict[str, Any], bbox: Dict[str, Any], category: str) -> Dict[str, Any]:
         """Generate a single size question"""
         
+        # Convert class_X format to human-readable name
+        readable_category = parse_class_category(category)
+        
         # Get maximum dimension in meters, convert to centimeters
         max_dim_m = get_max_dimension(bbox)
         max_dim_cm = max_dim_m * 100  # meters to centimeters
         
-        # Create question
-        question = TEMPLATE_OBJECT_3D_SIZE.format(category=category)
+        # Create question using readable category name
+        question = TEMPLATE_OBJECT_3D_SIZE.format(category=readable_category)
         
         # Generate distractor options
         options = self.generate_distractor_options(
@@ -81,6 +85,7 @@ class Object3DSizeQA(BaseQAGenerator):
                 'image_id': item.get('image_id', ''),
                 'scene_id': item.get('scene_id', ''),
                 'category': category,
+                'readable_category': readable_category,
                 'correct_size_cm': round(max_dim_cm, 1),
                 'answer_value': mc_data['answer_value'],
                 'unit': 'centimeters'
