@@ -49,7 +49,11 @@ export PIPELINE_CACHE_DIR="/path/to/cache/pipeline"    # Default: /tmp
 conda create -n data_pipeline python=3.11
 conda activate data_pipeline
 
-# Install dependencies
+#install download dependincies
+cd dataset_downloaders
+pip install -r requirements.txt && cd ..
+
+# Install processing dependencies
 cd data_processing
 pip install -r requirements.txt
 
