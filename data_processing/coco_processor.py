@@ -132,7 +132,7 @@ class COCOProcessor:
         # Load labels.json file
         labels_file = self.coco_dir / split / "labels.json"
         if not labels_file.exists():
-            logger.error(f"Labels file not found: {labels_file}")
+            logger.warning(f"Labels file not found: {labels_file} - skipping {split} split")
             return {"images": [], "annotations": [], "categories": []}
         
         with open(labels_file, 'r') as f:
@@ -266,44 +266,54 @@ class COCOProcessor:
         
         total_images = 0
         total_annotations = 0
+        processed_splits = []
         
-        # Process validation split
-        val_dir = self.coco_dir / "validation"
-        if val_dir.exists():
-            logger.info("\nProcessing validation split...")
-            self.process_split("validation")
+        # Check which splits are available and have labels
+        available_splits = []
+        for split in ["validation", "train"]:
+            split_dir = self.coco_dir / split
+            labels_file = split_dir / "labels.json"
+            if split_dir.exists() and labels_file.exists():
+                available_splits.append(split)
+            elif split_dir.exists():
+                logger.info(f"Split '{split}' directory exists but no labels.json found - skipping")
+        
+        if not available_splits:
+            logger.warning("No valid splits found with labels.json files")
+            return
+        
+        logger.info(f"Found valid splits: {', '.join(available_splits)}")
+        
+        # Process each available split
+        for split in available_splits:
+            logger.info(f"\nProcessing {split} split...")
+            self.process_split(split)
             
             # Count processed files
-            val_output = self.output_dir / "validation"
-            if val_output.exists():
-                val_files = list(val_output.glob("*.json"))
-                total_images += len(val_files)
+            split_output = self.output_dir / split
+            if split_output.exists():
+                split_files = list(split_output.glob("*.json"))
+                split_images = len(split_files)
+                split_annotations = 0
                 
                 # Count annotations
-                for f in val_files:
-                    data = json.load(open(f))
-                    total_annotations += len(data.get("bounding_boxes_2d", []))
-        
-        # Process train split if available
-        train_dir = self.coco_dir / "train"
-        if train_dir.exists():
-            logger.info("\nProcessing train split...")
-            self.process_split("train")
-            
-            # Count processed files
-            train_output = self.output_dir / "train"
-            if train_output.exists():
-                train_files = list(train_output.glob("*.json"))
-                total_images += len(train_files)
+                for f in split_files:
+                    try:
+                        data = json.load(open(f))
+                        split_annotations += len(data.get("bounding_boxes_2d", []))
+                    except Exception as e:
+                        logger.warning(f"Error reading {f}: {e}")
                 
-                # Count annotations
-                for f in train_files:
-                    data = json.load(open(f))
-                    total_annotations += len(data.get("bounding_boxes_2d", []))
+                total_images += split_images
+                total_annotations += split_annotations
+                processed_splits.append(split)
+                
+                logger.info(f"  {split}: {split_images} images, {split_annotations} annotations")
         
         # Save summary
         summary = {
             "dataset": "coco",
+            "processed_splits": processed_splits,
             "total_images": total_images,
             "total_annotations": total_annotations,
             "depth_type": "pseudo" if self.depth_model else "none",
@@ -313,6 +323,7 @@ class COCOProcessor:
         
         save_json(summary, self.output_dir / "summary.json")
         logger.info(f"\n✅ COCO processing complete!")
+        logger.info(f"   Processed splits: {', '.join(processed_splits)}")
         logger.info(f"   Total images: {total_images}")
         logger.info(f"   Total annotations: {total_annotations}")
         logger.info(f"   Output: {self.output_dir}")
