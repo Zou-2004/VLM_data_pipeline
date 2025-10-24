@@ -12,7 +12,6 @@ import sys
 from sunrgbd_processor import SUNRGBDProcessor
 from matterport_processor import MatterportProcessor
 from objectron_processor import ObjectronProcessor
-from coco_processor import COCOProcessor
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -44,10 +43,6 @@ class MasterProcessor:
             "objectron": lambda: ObjectronProcessor(
                 self.raw_data_dir / "Objectron",
                 self.output_dir / "objectron"
-            ),
-            "coco": lambda: COCOProcessor(
-                self.raw_data_dir / "COCO",
-                self.output_dir / "coco"
             )
         }
     
@@ -140,7 +135,7 @@ def main():
     parser.add_argument(
         "--datasets",
         nargs="+",
-        choices=["hypersim", "sunrgbd", "matterport", "objectron", "coco", "all"],
+        choices=["hypersim", "sunrgbd", "matterport", "objectron", "all"],
         default=["all"],
         help="Datasets to process (default: all)"
     )

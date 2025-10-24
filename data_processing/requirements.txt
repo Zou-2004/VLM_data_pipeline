@@ -3,7 +3,7 @@ numpy>=1.21.0
 scipy>=1.7.0
 Pillow>=9.0.0
 
-# PyTorch (required for MoGe-2 depth estimation in COCO)
+# PyTorch (required for future depth estimation tasks)
 torch>=2.0.0
 torchvision>=0.15.0
 
@@ -14,13 +14,5 @@ tqdm>=4.60.0
 # Protobuf (required for Objectron dataset parsing)
 protobuf>=3.20.0,<5.0.0
 grpcio-tools>=1.40.0
-
-# COCO dataset tools
-pycocotools>=2.0.0
-
-# Optional: MoGe-2 depth estimation dependencies
-# Install separately from MoGe/requirements.txt:
-#   cd MoGe && pip install -r requirements.txt
-# This includes: huggingface_hub, einops, timm, utils3d, etc.
 
 

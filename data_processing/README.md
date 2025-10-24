@@ -250,7 +250,7 @@ Each dataset generates a `summary.json`:
 - **Results**: 13,024 frames, ~13,284 3D bboxes
 
 ### COCO
-- **Implementation**: Uses pycocotools for 2D bbox annotations
+- **Implementation**: Uses standardized 3D bounding box format
 - **Depth Estimation**: MoGe-2 (Ruicheng/moge-2-vitl-normal, 1.3GB model)
 - **Split**: Processes validation set (5,000 images, limited to 50 for testing)
 - **Annotations**: 2D bounding boxes only (no 3D)
