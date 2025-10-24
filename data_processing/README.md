@@ -30,12 +30,17 @@ This module processes multiple 3D vision datasets into a unified JSON format for
 - **Key Features**: Object-centric views, mobile phone captured
 - **Status**: ✅ Fully working - 13,024 frames, ~13,284 3D bboxes
 
-### 4. COCO
-- **Input**: COCO-2017 with 2D annotations
-- **Output**: RGB images with 2D bboxes and MoGe-2 pseudo-depth
-- **Key Features**: Large-scale, diverse objects, metric pseudo-depth estimation
-- **Depth Model**: MoGe-2 (Ruicheng/moge-2-vitl-normal) for high-quality depth prediction
-- **Status**: ✅ Fully working - 50 validation images, 427 2D bboxes
+### 4. Hypersim
+- **Input**: Hypersim synthetic indoor scenes
+- **Output**: RGB-D images with 3D bounding boxes
+- **Key Features**: Photorealistic synthetic scenes, perfect depth
+- **Status**: ✅ Fully working
+
+### 5. Taskonomy
+- **Input**: Taskonomy multi-task dataset with 3D annotations
+- **Output**: RGB images with semantic-labeled 3D bounding boxes
+- **Key Features**: Real indoor scenes, GroundingDINO semantic labeling
+- **Status**: ✅ Fully working - 3,862 views, 90,181 3D bboxes with semantic labels
 
 ## Installation
 
@@ -52,11 +57,11 @@ conda activate data_pipeline
 pip install -r requirements.txt
 ```
 
-### 3. Install MoGe-2 for COCO depth estimation
+### 3. Install GroundingDINO for Taskonomy semantic labeling
 
 ```bash
-cd MoGe
-pip install -r requirements.txt
+cd data_processing
+bash setup_groundingdino.sh
 cd ..
 ```
 
@@ -71,6 +76,22 @@ export PIP_CACHE_DIR=/path/to/pip_cache
 ```
 
 Add these to your `~/.bashrc` to make them permanent.
+
+### GroundingDINO Setup for Taskonomy
+
+The Taskonomy processor uses **GroundingDINO** for open-vocabulary semantic labeling of 3D bounding boxes:
+
+1. **Run setup script** (downloads model weights):
+   ```bash
+   cd data_processing
+   bash setup_groundingdino.sh
+   ```
+
+2. **Model will be downloaded** (~440MB):
+   - Model: `groundingdino_swint_ogc.pth`
+   - Saved to: `GroundingDINO/weights/`
+
+3. **Runs on CPU** (CUDA extensions not required)
 
 ### MoGe-2 Depth Estimation Setup
 
@@ -111,10 +132,35 @@ python process_all.py --raw-data-dir ../raw_data --output-dir ../processed_data
 ### Process Specific Datasets
 
 ```bash
-python process_all.py --datasets sunrgbd matterport objectron coco
+python process_all.py --datasets sunrgbd matterport objectron hypersim taskonomy
 ```
 
 ### Process Individual Dataset
+
+#### Taskonomy with Semantic Labeling
+
+```python
+from taskonomy_processor import TaskonomyProcessor
+
+# Step 1: Process dataset with 3D bboxes
+processor = TaskonomyProcessor(
+    raw_data_dir="raw_data/taskonomy_dataset",
+    output_dir="processed_data/taskonomy"
+)
+processor.process_all()
+
+# Step 2: Build semantic label codebook using GroundingDINO
+# This detects labels for unique instances once, then applies to all occurrences
+python build_label_codebook_fast.py
+```
+
+**Codebook Approach**:
+- Scans all JSONs to find unique unlabeled instances (e.g., `object_5`, `object_12`)
+- Detects semantic labels once per unique instance using GroundingDINO
+- Applies labels to all occurrences (e.g., `object_5` → `chair_5`)
+- **~400x faster** than detecting every instance individually
+
+#### SUN RGB-D
 
 ```python
 from sunrgbd_processor import SUNRGBDProcessor
@@ -124,28 +170,11 @@ processor = SUNRGBDProcessor(
     output_dir="processed_data/sunrgbd"
 )
 processor.process_all()
-```
 
-### COCO with MoGe-2 Depth Estimation
+#### Objectron
 
 ```python
-from coco_processor import COCOProcessor
-
-# With MoGe-2 depth estimation (default)
-processor = COCOProcessor(
-    raw_data_dir="raw_data/COCO/coco-2017",
-    output_dir="processed_data/coco",
-    depth_model="moge"  # Use MoGe-2 for depth
-)
-processor.process_all()
-
-# Without depth estimation
-processor = COCOProcessor(
-    raw_data_dir="raw_data/COCO/coco-2017",
-    output_dir="processed_data/coco",
-    depth_model=None  # Skip depth
-)
-processor.process_all()
+from objectron_processor import ObjectronProcessor
 ```
 
 ## Output Format
@@ -214,13 +243,14 @@ Each dataset generates a `summary.json`:
 
 ## Processing Statistics
 
-| Dataset | Scenes | Images | 3D Bboxes | 2D Bboxes | Depth Type |
-|---------|--------|--------|-----------|-----------|------------|
-| SUN RGB-D | 1,449 | 1,449 | 12,315 | - | depth_png_mm |
-| Matterport3D | 61 | 4,932 | ~24,462 | - | none |
-| Objectron | 2 categories | 13,024 | ~13,284 | - | none |
-| COCO | - | 50 | - | 427 | pseudo (MoGe-2) |
-| **Total** | **~1,512** | **~19,455** | **~50,061** | **427** | - |
+| Dataset | Scenes | Images | 3D Bboxes | 2D Bboxes | Depth Type | Semantic Labels |
+|---------|--------|--------|-----------|-----------|------------|-----------------|
+| SUN RGB-D | 1,449 | 1,449 | 12,315 | - | depth_png_mm | ✓ |
+| Matterport3D | 61 | 4,932 | ~24,462 | - | none | ✓ |
+| Objectron | 2 categories | 13,024 | ~13,284 | - | none | ✓ |
+| Hypersim | - | - | - | - | depth_png_mm | ✓ |
+| Taskonomy | 1 location | 3,862 | 90,181 | - | none | ✓ (GroundingDINO) |
+| **Total** | **~1,512** | **~23,267** | **~140,242** | **-** | - | - |
 
 ## Dataset-Specific Notes
 
@@ -249,14 +279,20 @@ Each dataset generates a `summary.json`:
 - **Categories**: bike, book (expandable to other categories)
 - **Results**: 13,024 frames, ~13,284 3D bboxes
 
-### COCO
-- **Implementation**: Uses standardized 3D bounding box format
-- **Depth Estimation**: MoGe-2 (Ruicheng/moge-2-vitl-normal, 1.3GB model)
-- **Split**: Processes validation set (5,000 images, limited to 50 for testing)
-- **Annotations**: 2D bounding boxes only (no 3D)
-- **Depth Type**: "pseudo" (estimated from MoGe-2, not ground truth)
-- **Optional**: Depth estimation can be disabled with `depth_model=None`
-- **Results**: 50 validation images, 427 2D bboxes
+### Taskonomy
+- **Implementation**: Processes RGB images with derived 3D bboxes from depth + segmentation
+- **Structure**: Point cloud camera locations with multiple views per point
+- **Semantic Labeling**: Uses GroundingDINO for open-vocabulary object detection
+- **Codebook Approach**: Detects unique instance IDs once, applies to all occurrences
+- **Label Format**: Converts `object_N` → `semantic_label_N` (e.g., `chair_5`, `table_12`)
+- **Detection**: ~40 indoor object categories (furniture, appliances, structures)
+- **Performance**: 253 unique instances detected in ~19 minutes, applied to 90,181 bboxes
+- **Results**: 3,862 views from 1 location (ackermanville), 90,181 3D bboxes with semantic labels
+
+### Hypersim
+- **Implementation**: Processes synthetic indoor scenes
+- **Depth**: Accurate metric depth from rendering
+- **Results**: Processing statistics to be added
 
 ## Coordinate System
 
@@ -301,6 +337,11 @@ Core dependencies (see `requirements.txt`):
 - `h5py>=3.0.0` - HDF5 file handling
 - `protobuf>=3.20.0` - Protocol buffers (for Objectron)
 - `grpcio-tools>=1.40.0` - Protobuf compilation tools
+- `supervision` - GroundingDINO visualization utilities
+
+GroundingDINO specific (installed from `setup_groundingdino.sh`):
+- `groundingdino` - Open-vocabulary object detection
+- Model weights: `groundingdino_swint_ogc.pth` (~440MB)
 
 MoGe-2 specific (installed from `MoGe/requirements.txt`):
 - `huggingface_hub` - Model downloading
@@ -317,6 +358,12 @@ export TORCH_HOME=/mnt/sdd/torch_cache
 export TMPDIR=/mnt/sdd/tmp
 export PIP_CACHE_DIR=/mnt/sdd/pip_cache
 ```
+
+### GroundingDINO Model Issues
+The model runs on CPU by default. If you encounter `_C` module errors, this is expected - the CUDA extensions are not compiled. The script automatically falls back to CPU mode.
+
+### Taskonomy Codebook Building
+The codebook building process takes ~19 minutes for 253 unique instances. Progress is shown with tqdm progress bars. If interrupted, simply rerun - the cache file will speed up subsequent runs.
 
 ### MoGe-2 Model Download
 The MoGe-2 model (1.3GB) will be automatically downloaded from Hugging Face on first run of COCO processing. Ensure you have internet connectivity and sufficient disk space.
