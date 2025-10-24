@@ -140,17 +140,6 @@ python process_all.py --datasets sunrgbd matterport objectron hypersim taskonomy
 #### Taskonomy with Semantic Labeling
 
 ```python
-from taskonomy_processor import TaskonomyProcessor
-
-# Step 1: Process dataset with 3D bboxes
-processor = TaskonomyProcessor(
-    raw_data_dir="raw_data/taskonomy_dataset",
-    output_dir="processed_data/taskonomy"
-)
-processor.process_all()
-
-# Step 2: Build semantic label codebook using GroundingDINO
-# This detects labels for unique instances once, then applies to all occurrences
 python build_label_codebook_fast.py
 ```
 

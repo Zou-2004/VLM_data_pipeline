@@ -4,34 +4,24 @@ A comprehensive data processing and QA generation pipeline for training Vision L
 
 ## Overview
 
-This pipeline processes 4 major 3D vision datasets into a unified JSON format and generates VLM-3R style spatial reasoning questions. The complete pipeline includes:
+This pipeline processes 3 major 3D vision datasets into a unified JSON format and generates VLM-3R style spatial reasoning questions. The complete pipeline includes:
 - Dataset processing with standardized 3D bounding boxes and camera parameters
 - Automated QA generation for spatial reasoning tasks
-- Support for both 2D and 3D spatial understanding
+- Support for 3D spatial understanding
 
 ### Key Features
 
 - **Unified Data Format**: Standardized 3D bounding boxes and camera parameters across all datasets
 - **QA Generation**: Automated creation of 485K+ spatial reasoning questions in VLM-3R style
-- **Multiple Depth Types**: Metric depth, depth maps, and MoGe-2 pseudo-depth
-- **4 Diverse Datasets**: 19,455 images with 50,000+ 3D bounding boxes
+- **Multiple Depth Types**: Metric depth, depth maps
+- **3 Diverse Datasets**: 25,199 images with 86,288+ 3D bounding boxes
 - **Complete Pipeline**: One-command processing and QA generation
 
-## Supported Datasets
-
-| Dataset | Images | 3D Bboxes | 2D Bboxes | QA Pairs | Depth Type |
-|---------|--------|-----------|-----------|----------|------------|
-| **SUN RGB-D** | 7,243 | 48,542 | - | 234,503 | depth_png_mm |
-| **Matterport3D** | 4,932 | 24,462 | - | 222,785 | none |
-| **Objectron** | 13,024 | 13,284 | - | 27,809 | none |
-| **COCO** | 50 | - | 427 | 232 | pseudo (MoGe-2) |
-| **Total** | **25,249** | **86,288** | **427** | **485,329** | - |
 
 ### QA Generation Tasks
 
 - **Object Count**: Multiple choice questions about object instances
 - **3D Object Size**: Maximum dimension of 3D objects (in centimeters)
-- **2D Bbox Size**: Area of 2D bounding boxes (pixels)
 - **Distance**: Camera-to-object and object-to-object distances
 - **Relative Position**: Near/Far, Left/Right, Up/Down spatial relationships
 - **Closest Object**: Which object is nearest to camera
@@ -56,10 +46,6 @@ pip install -r requirements.txt && cd ..
 # Install processing dependencies
 cd data_processing
 pip install -r requirements.txt
-
-# Clone MoGe-2 for COCO depth estimation
-git clone https://github.com/microsoft/MoGe.git
-cd MoGe && pip install -r requirements.txt && cd ..
 ```
 
 ### 2. Download and Process Datasets
@@ -74,7 +60,10 @@ cd ..
 # Process all datasets
 cd data_processing
 python process_all.py --raw-data-dir ../raw_data --output-dir ../processed_data
+# Taskonomy with Semantic Labeling
+python build_label_codebook_fast.py
 ```
+
 
 ### 3. Generate QA Pairs
 
@@ -92,11 +81,9 @@ VLM_data_pipeline/
 ├── README.md                    # This file
 ├── data_processing/             # Dataset processors
 │   ├── process_all.py           # Master processing script
-│   ├── coco_processor.py        # COCO with MoGe-2 depth
 │   ├── sunrgbd_processor.py     # SUN RGB-D processor
 │   ├── matterport_processor.py  # Matterport3D with EmbodiedScan
-│   ├── objectron_processor.py   # Objectron protobuf parser
-│   └── MoGe/                    # MoGe-2 depth estimation model
+│   └── objectron_processor.py   # Objectron protobuf parser
 ├── dataset_downloaders/         # Dataset download scripts
 │   └── download_all.py          # Master download script
 ├── QA_generation/               # QA generation pipeline
@@ -138,7 +125,7 @@ Generated questions follow VLM-3R style with multiple choice and numerical answe
 ### Process Specific Datasets
 ```bash
 python process_all.py --datasets sunrgbd matterport
-python generate_qa.py --dataset coco
+python generate_qa.py --dataset sunrgbd
 ```
 
 ### Generate Specific QA Tasks
@@ -159,8 +146,6 @@ python generate_qa.py --output-dir /custom/path/qa_output
 - NumPy, SciPy, Pillow, tqdm
 - h5py (for HDF5 files)
 - protobuf, grpcio-tools (for Objectron)
-- pycocotools (for COCO)
-- MoGe-2 dependencies (for COCO depth estimation)
 
 See `data_processing/requirements.txt` and `QA_generation/requirements.txt` for complete lists.
 
@@ -170,7 +155,6 @@ See `data_processing/requirements.txt` and `QA_generation/requirements.txt` for 
 The pipeline requires significant disk space:
 - Raw datasets: ~40-60GB
 - Processed data: ~20-30GB
-- Model cache (MoGe-2): ~1.3GB
 - QA output: ~500MB
 
 Configure cache directories to avoid filling home disk:
@@ -184,7 +168,6 @@ export TORCH_HOME=/path/to/torch_cache
 For large-scale processing:
 - Process datasets one at a time
 - Use `--limit` parameter for testing
-- Reduce MoGe-2 batch size in `coco_processor.py`
 
 ## Documentation
 
@@ -198,7 +181,6 @@ This project is licensed under the MIT License. See individual dataset licenses 
 
 ## Acknowledgments
 
-- **MoGe-2**: [microsoft/MoGe](https://github.com/microsoft/MoGe)
 - **EmbodiedScan**: [EmbodiedScan-v2](https://github.com/OpenRobotLab/EmbodiedScan)
 - **VLM-3R**: Question format and methodology
-- **Datasets**: COCO, SUN RGB-D, Matterport3D, Objectron
+- **Datasets**: SUN RGB-D, Matterport3D, Objectron
