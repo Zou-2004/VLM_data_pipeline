@@ -328,28 +328,54 @@ def process_view(
         # Filter out background (typically 0)
         unique_instances = unique_instances[unique_instances > 0]
         
-        # Derive 3D bounding boxes for each instance
+        # Derive 3D bounding boxes and precise 2D bboxes for each instance
         bboxes_3d = []
+        bboxes_2d = []
         for instance_id in unique_instances:
-            bbox = compute_3d_bbox_from_instance_mask(
-                instance_mask, depth_map, int(instance_id),
-                intrinsics['fx'], intrinsics['fy'],
-                intrinsics['cx'], intrinsics['cy']
-            )
+            # Extract precise 2D bbox directly from instance mask
+            mask_2d = (instance_mask == instance_id).astype(np.uint8)
+            contours, _ = cv2.findContours(mask_2d, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
             
-            if bbox:
-                # Convert to 9-DoF format
-                bbox_9dof = convert_bbox_to_9dof(
-                    center=bbox['center'],
-                    dimensions=bbox['dimensions'],
-                    rotation=bbox['rotation'],
-                    rotation_format='euler'
-                )
+            if len(contours) > 0:
+                # Get bounding box from largest contour
+                largest_contour = max(contours, key=cv2.contourArea)
+                x, y, w, h = cv2.boundingRect(largest_contour)
                 
-                # Add category (with semantic label if available)
-                semantic_class_id = semantic_to_instance_map.get(int(instance_id))
-                bbox_9dof['category'] = get_instance_category(int(instance_id), semantic_class_id)
-                bboxes_3d.append(bbox_9dof)
+                # Only proceed if bbox is reasonable size (filter noise)
+                if w > 5 and h > 5:
+                    bbox_2d = {
+                        "x_min": int(x),
+                        "y_min": int(y),
+                        "x_max": int(x + w),
+                        "y_max": int(y + h),
+                        "instance_id": int(instance_id),
+                        "area": int(w * h)
+                    }
+                    
+                    # Compute 3D bbox
+                    bbox = compute_3d_bbox_from_instance_mask(
+                        instance_mask, depth_map, int(instance_id),
+                        intrinsics['fx'], intrinsics['fy'],
+                        intrinsics['cx'], intrinsics['cy']
+                    )
+                    
+                    if bbox:
+                        # Convert to 9-DoF format
+                        bbox_9dof = convert_bbox_to_9dof(
+                            center=bbox['center'],
+                            dimensions=bbox['dimensions'],
+                            rotation=bbox['rotation'],
+                            rotation_format='euler'
+                        )
+                        
+                        # Add category (with semantic label if available)
+                        semantic_class_id = semantic_to_instance_map.get(int(instance_id))
+                        category = get_instance_category(int(instance_id), semantic_class_id)
+                        bbox_9dof['category'] = category
+                        bbox_2d['category'] = category
+                        
+                        bboxes_3d.append(bbox_9dof)
+                        bboxes_2d.append(bbox_2d)
         
         # Build relative paths
         rgb_rel_path = f'{location_name}/point_{point_id}_view_{view_id}_domain_rgb.png'
@@ -375,7 +401,7 @@ def process_view(
                 "extrinsics": extrinsics_matrix
             },
             "depth_stats": depth_stats,
-            "bounding_boxes_2d": [],  # Not provided by Taskonomy
+            "bounding_boxes_2d": bboxes_2d,  # Extracted from instance masks
             "bounding_boxes_3d": bboxes_3d
         }
         

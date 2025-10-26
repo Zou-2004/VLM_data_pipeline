@@ -12,6 +12,7 @@ import sys
 from sunrgbd_processor import SUNRGBDProcessor
 from matterport_processor import MatterportProcessor
 from objectron_processor import ObjectronProcessor
+from taskonomy_processor import TaskonomyProcessor
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -43,6 +44,10 @@ class MasterProcessor:
             "objectron": lambda: ObjectronProcessor(
                 self.raw_data_dir / "Objectron",
                 self.output_dir / "objectron"
+            ),
+            "taskonomy": lambda: TaskonomyProcessor(
+                self.raw_data_dir / "taskonomy_dataset",
+                self.output_dir / "taskonomy"
             )
         }
     
@@ -135,7 +140,7 @@ def main():
     parser.add_argument(
         "--datasets",
         nargs="+",
-        choices=["hypersim", "sunrgbd", "matterport", "objectron", "all"],
+        choices=["hypersim", "sunrgbd", "matterport", "objectron", "taskonomy", "all"],
         default=["all"],
         help="Datasets to process (default: all)"
     )
