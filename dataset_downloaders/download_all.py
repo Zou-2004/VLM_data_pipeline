@@ -37,13 +37,17 @@ class MasterDownloader:
                 "name": "EmbodiedScan-v2",
                 "script": "embodiedscan_downloader.py",
             },
-            "coco": {
-                "name": "COCO-2017",
-                "script": "coco_downloader.py",
-            },
             "matterport": {
                 "name": "Matterport3D",
                 "script": "matterport_downloader.py",
+            },
+            "hypersim": {
+                "name": "Hypersim",
+                "script": "hypersim_downloader.py",
+            },
+            "taskonomy": {
+                "name": "Taskonomy",
+                "script": "taskonomy_downloader.py",
             }
         }
     
@@ -89,12 +93,10 @@ class MasterDownloader:
             if dataset_id == "objectron":
                 # Download all categories via HTTP
                 cmd.extend(["--categories", "all", "--split", "train", "--workers", "4"])
-            elif dataset_id == "coco":
-                # Download full COCO dataset (train + validation, ~25GB)
-                cmd.append("--full")  # Download full COCO dataset
             elif dataset_id == "matterport":
                 # Auto-accept TOS and download minimal file types
                 cmd.extend(["--auto-accept", "--type", "matterport_camera_poses", "matterport_color_images"])
+            # Hypersim and Taskonomy: No default arguments - user must run manually for full download
             
             result = subprocess.run(cmd, check=True)
             logger.info(f"✅ {config['name']} downloaded successfully!")
@@ -118,9 +120,9 @@ class MasterDownloader:
             "sunrgbd": {"name": "SUN RGB-D", "dir": "SUNRGBD"},
             "objectron": {"name": "Objectron", "dir": "Objectron"},
             "embodiedscan": {"name": "EmbodiedScan-v2", "dir": "embodiedscan-v2"},
-            "coco": {"name": "COCO-2017", "dir": "COCO"},
             "matterport": {"name": "Matterport3D", "dir": "Matterport"},
-            "hypersim": {"name": "Hypersim", "dir": "Hypersim/ml-hypersim"}
+            "hypersim": {"name": "Hypersim", "dir": "Hyperism"},
+            "taskonomy": {"name": "Taskonomy", "dir": "taskonomy_dataset"}
         }
         
         downloaded_count = 0
@@ -144,17 +146,13 @@ class MasterDownloader:
                     json_files = list(dataset_dir.glob("*.json"))
                     print(f"✅ {config['name']:20} ({len(json_files)} files)")
                 
-                elif dataset_id == "coco":
-                    # Check for train/validation splits
-                    splits = []
-                    if (dataset_dir / "train").exists():
-                        splits.append("train")
-                    if (dataset_dir / "validation").exists():
-                        splits.append("val")
-                    if splits:
-                        print(f"✅ {config['name']:20} ({', '.join(splits)} splits)")
-                    else:
-                        print(f"✅ {config['name']:20}")
+                elif dataset_id == "hypersim":
+                    scene_dirs = [d for d in dataset_dir.iterdir() if d.is_dir() and d.name.startswith('ai_')]
+                    print(f"✅ {config['name']:20} ({len(scene_dirs)} scenes)")
+                
+                elif dataset_id == "taskonomy":
+                    domain_dirs = [d for d in dataset_dir.iterdir() if d.is_dir()]
+                    print(f"✅ {config['name']:20} ({len(domain_dirs)} domains)")
                     
                 else:
                     print(f"✅ {config['name']:20}")
@@ -163,7 +161,7 @@ class MasterDownloader:
             else:
                 print(f"❌ {config['name']:20} (not found)")
         
-        print(f"\n📊 Total: {downloaded_count}/6 datasets available")
+        print(f"\n📊 Total: {downloaded_count}/7 datasets available")
         return downloaded_count
 
 def main():
