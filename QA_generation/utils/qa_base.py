@@ -16,7 +16,7 @@ class BaseQAGenerator(ABC):
         """
         Args:
             task_name: Name of the task (e.g., 'object_count')
-            dataset_name: Name of the dataset (e.g., 'coco')
+            dataset_name: Name of the dataset (e.g., 'sunrgbd')
         """
         self.task_name = task_name
         self.dataset_name = dataset_name

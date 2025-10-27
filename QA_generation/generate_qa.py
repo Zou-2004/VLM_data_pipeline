@@ -48,7 +48,7 @@ def generate_for_dataset(dataset_name: str, tasks: List[str] = None, limit: int 
     Generate QA pairs for a specific dataset
     
     Args:
-        dataset_name: Name of the dataset (coco, objectron, matterport, sunrgbd)
+        dataset_name: Name of the dataset (objectron, matterport, sunrgbd, hypersim, taskonomy)
         tasks: List of task names to run (None = all supported tasks)
         limit: Maximum number of data files to process (None = all)
         base_output_dir: Base output directory (None = use default OUTPUT_DIR)
@@ -183,22 +183,21 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Generate all QA pairs for COCO dataset
-  python generate_qa.py --dataset coco
+  # Generate all QA pairs for Objectron dataset
+  python generate_qa.py --dataset objectron
   
-  # Generate specific tasks for Objectron
-  python generate_qa.py --dataset objectron --tasks object_count object_3d_size
+  # Generate specific tasks for Taskonomy
+  python generate_qa.py --dataset taskonomy --tasks object_count object_3d_size
   
   # Generate for all datasets
   python generate_qa.py --all
   
   # Process limited number of files for testing
-  python generate_qa.py --dataset matterport --limit 10
+  python generate_qa.py --dataset hypersim --limit 10
 
-Available datasets: coco, objectron, matterport, sunrgbd
+Available datasets: objectron, matterport, sunrgbd, hypersim, taskonomy
 Available tasks:
-  2D tasks: object_count, bbox_2d_size
-  3D tasks: object_3d_size, cam_obj_distance, obj_obj_distance, 
+  3D tasks: object_count, object_3d_size, cam_obj_distance, obj_obj_distance, 
             cam_obj_rel_dist, obj_obj_rel_pos
         """
     )
@@ -206,7 +205,7 @@ Available tasks:
     parser.add_argument(
         '--dataset',
         type=str,
-        choices=['coco', 'objectron', 'matterport', 'sunrgbd'],
+        choices=['objectron', 'matterport', 'sunrgbd', 'hypersim', 'taskonomy'],
         help='Dataset to process'
     )
     
