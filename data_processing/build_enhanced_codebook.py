@@ -27,6 +27,62 @@ logger = logging.getLogger(__name__)
 
 
 # ============================================================================
+# CACHE BUILDING UTILITY
+# ============================================================================
+
+def build_instance_cache(processed_dir: Path) -> Dict[int, List[Tuple[Path, int]]]:
+    """
+    Build cache of instance ID to locations mapping by scanning all JSON files.
+    
+    Args:
+        processed_dir: Directory containing processed Taskonomy JSON files
+        
+    Returns:
+        Dictionary mapping instance_id -> [(json_path, bbox_idx), ...]
+    """
+    logger.info("Building instance cache by scanning JSON files...")
+    
+    instance_locations = defaultdict(list)
+    json_files = list(processed_dir.glob('**/*.json'))
+    
+    logger.info(f"Found {len(json_files)} JSON files to scan")
+    
+    for json_path in tqdm(json_files, desc="Scanning JSON files"):
+        try:
+            with open(json_path, 'r') as f:
+                data = json.load(f)
+            
+            # Process each 3D bounding box
+            for bbox_idx, bbox_3d in enumerate(data.get('bounding_boxes_3d', [])):
+                category = bbox_3d.get('category', '')
+                
+                # Extract instance ID from category (e.g., "object_18" -> 18)
+                if category.startswith('object_'):
+                    try:
+                        instance_id = int(category.split('_')[1])
+                        instance_locations[instance_id].append((json_path, bbox_idx))
+                    except (ValueError, IndexError):
+                        continue
+        
+        except Exception as e:
+            logger.warning(f"Error processing {json_path}: {e}")
+            continue
+    
+    # Convert defaultdict to regular dict
+    instance_locations = dict(instance_locations)
+    
+    logger.info(f"✅ Found {len(instance_locations)} unique instances across {len(json_files)} files")
+    
+    # Show some statistics
+    location_counts = [len(locs) for locs in instance_locations.values()]
+    logger.info(f"   Min locations per instance: {min(location_counts)}")
+    logger.info(f"   Max locations per instance: {max(location_counts)}")
+    logger.info(f"   Avg locations per instance: {sum(location_counts)/len(location_counts):.1f}")
+    
+    return instance_locations
+
+
+# ============================================================================
 # CLASS VOCABULARY AND SYNONYM BUCKETS
 # ============================================================================
 
@@ -452,17 +508,27 @@ def main():
     processed_dir = base_dir / 'processed_data' / 'taskonomy'
     raw_dir = base_dir / 'raw_data' / 'taskonomy_dataset'
     
-    # Load existing instance locations (from cache)
+    # Build or load instance cache
     cache_path = processed_dir / '.instance_cache.pkl'
     
     if cache_path.exists():
+        logger.info(f"Loading instance cache from {cache_path}...")
         with open(cache_path, 'rb') as f:
             cached_data = pickle.load(f)
         instance_locations = cached_data['instance_locations']
         logger.info(f"✅ Loaded {len(instance_locations)} instances from cache")
     else:
-        logger.error("❌ No cache found. Run build_label_codebook_fast.py first to generate cache.")
-        return
+        logger.info("Cache not found, building from JSON files...")
+        instance_locations = build_instance_cache(processed_dir)
+        
+        # Save cache for future use
+        cached_data = {
+            'instance_locations': instance_locations,
+            'total_files': len(list(processed_dir.glob('**/*.json')))
+        }
+        with open(cache_path, 'wb') as f:
+            pickle.dump(cached_data, f)
+        logger.info(f"💾 Saved cache to {cache_path}")
     
     # Select representatives
     representatives = {
