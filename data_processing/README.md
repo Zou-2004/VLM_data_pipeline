@@ -39,8 +39,49 @@ This module processes multiple 3D vision datasets into a unified JSON format for
 ### 5. Taskonomy
 - **Input**: Taskonomy multi-task dataset with 3D annotations
 - **Output**: RGB images with semantic-labeled 3D bounding boxes
-- **Key Features**: Real indoor scenes, GroundingDINO semantic labeling
+- **Key Features**: Real indoor scenes, Enhanced CLIP semantic labeling
 - **Status**: ✅ Fully working - 3,862 views, 90,181 3D bboxes with semantic labels
+
+#### Enhanced CLIP Pipeline (New)
+
+The Taskonomy processor now uses an **Enhanced Two-Stage CLIP Classification Pipeline** for superior semantic labeling:
+
+**Pipeline Architecture**:
+- **Stage A (Fast)**: CLIP-B/16 with context padding (threshold: 0.015)
+- **Stage B (Strong)**: SAM mask refinement + CLIP-L/14 fallback (threshold: 0.010)
+- **Results**: 96.4% success rate (244/253 instances classified)
+
+**Key Improvements**:
+- ✅ **Precise 2D bboxes** extracted directly from instance masks
+- ✅ **Context-aware classification** with padded crops
+- ✅ **SAM integration** for background suppression in difficult cases
+- ✅ **Synonym bucket merging** (e.g., tv/monitor/computer → screen_like)
+- ✅ **Temperature scaling** for confidence calibration
+- ✅ **69-class vocabulary** covering furniture, electronics, structural elements
+
+**Setup Instructions**:
+```bash
+# 1. Install enhanced dependencies
+cd data_processing
+pip install -r enhanced_requirements.txt
+
+# 2. Download SAM model
+bash setup_enhanced_pipeline.sh
+
+# 3. Run enhanced pipeline
+python build_enhanced_codebook.py
+
+# 4. Create labeled-only dataset
+python create_labeled_dataset.py
+
+# 5. Visualize results
+python visualize_enhanced_results.py
+```
+
+**Output Files**:
+- `enhanced_label_codebook.json` - Instance ID to semantic label mapping
+- `../processed_data/taskonomy_labeled/` - JSON files with only labeled objects
+- `enhanced_clip_results.png` - Visualization of classification examples
 
 ## Installation
 
@@ -57,11 +98,12 @@ conda activate data_pipeline
 pip install -r requirements.txt
 ```
 
-### 3. Install GroundingDINO for Taskonomy semantic labeling
+### 3. Install Enhanced CLIP Pipeline for Taskonomy semantic labeling
 
 ```bash
 cd data_processing
-bash setup_groundingdino.sh
+pip install -r enhanced_requirements.txt
+bash setup_enhanced_pipeline.sh
 cd ..
 ```
 
@@ -77,46 +119,53 @@ export PIP_CACHE_DIR=/path/to/pip_cache
 
 Add these to your `~/.bashrc` to make them permanent.
 
-### GroundingDINO Setup for Taskonomy
+### Enhanced CLIP Pipeline for Taskonomy
 
-The Taskonomy processor uses **GroundingDINO** for open-vocabulary semantic labeling of 3D bounding boxes:
+The Taskonomy processor uses an **Enhanced Two-Stage CLIP Classification Pipeline** for high-quality semantic labeling:
 
-1. **Run setup script** (downloads model weights):
+**Architecture**:
+1. **Stage A (Fast)**: CLIP-B/16 with context-padded crops (TAU_HIGH=0.015)
+2. **Stage B (Strong)**: SAM mask refinement + CLIP-L/14 for difficult cases (TAU_MID=0.010)
+
+**Setup Process**:
+
+1. **Install enhanced dependencies**:
    ```bash
    cd data_processing
-   bash setup_groundingdino.sh
+   pip install -r enhanced_requirements.txt
    ```
 
-2. **Model will be downloaded** (~440MB):
-   - Model: `groundingdino_swint_ogc.pth`
-   - Saved to: `GroundingDINO/weights/`
-
-3. **Runs on CPU** (CUDA extensions not required)
-
-### MoGe-2 Depth Estimation Setup
-
-The COCO processor uses **MoGe-2** (Metric 3D Geometry Estimation v2) for high-quality pseudo-depth estimation:
-
-1. **Clone MoGe repository** (if not already present):
+2. **Download SAM model** (~440MB):
    ```bash
-   cd data_processing
-   git clone https://github.com/microsoft/MoGe.git
+   bash setup_enhanced_pipeline.sh
    ```
 
-2. **Install dependencies**:
+3. **Run enhanced pipeline** (requires processed Taskonomy data):
    ```bash
-   cd MoGe
-   pip install -r requirements.txt
+   python build_enhanced_codebook.py
    ```
 
-3. **Configure cache directories** (important for disk space management):
+**Model Components**:
+- **CLIP Models**: ViT-B/16 (fast), ViT-L/14 (strong)
+- **SAM Model**: `sam_vit_h_4b8939.pth` for mask refinement
+- **Vocabulary**: 69 indoor object classes with synonym buckets
+- **Device**: Runs on CUDA (falls back to CPU)
+
+**Performance Results**:
+- **Success Rate**: 96.4% (244/253 instances classified)
+- **Stage A**: 193 instances (fast classification)
+- **Stage B**: 51 instances (SAM + strong CLIP)
+- **Discarded**: Only 9 instances
+- **Speed**: ~2.5 it/s with full two-stage pipeline
+
+4. **Configure cache directories** (important for disk space management):
    ```bash
    export HF_HOME=/mnt/sdd/hf_cache
    export TORCH_HOME=/mnt/sdd/torch_cache
    export TMPDIR=/mnt/sdd/tmp
    ```
 
-4. **Model will auto-download** from Hugging Face on first run (~1.3GB):
+5. **Model will auto-download** from Hugging Face on first run (~1.3GB):
    - Model: `Ruicheng/moge-2-vitl-normal`
    - Cached in: `$HF_HOME/hub/models--Ruicheng--moge-2-vitl-normal/`
 
@@ -137,17 +186,25 @@ python process_all.py --datasets sunrgbd matterport objectron hypersim taskonomy
 
 ### Process Individual Dataset
 
-#### Taskonomy with Semantic Labeling
+#### Taskonomy with Enhanced CLIP Semantic Labeling
 
-```python
-python build_label_codebook_fast.py
+```bash
+# 1. Build enhanced codebook (requires processed Taskonomy data)
+python build_enhanced_codebook.py
+
+# 2. Create labeled-only dataset
+python create_labeled_dataset.py
+
+# 3. Visualize classification results
+python visualize_enhanced_results.py
 ```
 
-**Codebook Approach**:
-- Scans all JSONs to find unique unlabeled instances (e.g., `object_5`, `object_12`)
-- Detects semantic labels once per unique instance using GroundingDINO
-- Applies labels to all occurrences (e.g., `object_5` → `chair_5`)
-- **~400x faster** than detecting every instance individually
+**Enhanced CLIP Pipeline**:
+- **Two-stage architecture**: Fast CLIP → SAM + Strong CLIP fallback
+- **Context-aware**: 15% padding around bounding boxes
+- **High accuracy**: 96.4% classification success rate
+- **69 classes**: Furniture, electronics, structural elements, etc.
+- **Output**: `enhanced_label_codebook.json` + labeled-only dataset
 
 #### SUN RGB-D
 
@@ -238,8 +295,8 @@ Each dataset generates a `summary.json`:
 | Matterport3D | 61 | 4,932 | ~24,462 | - | none | ✓ |
 | Objectron | 2 categories | 13,024 | ~13,284 | - | none | ✓ |
 | Hypersim | - | - | - | - | depth_png_mm | ✓ |
-| Taskonomy | 1 location | 3,862 | 90,181 | - | none | ✓ (GroundingDINO) |
-| **Total** | **~1,512** | **~23,267** | **~140,242** | **-** | - | - |
+| Taskonomy | 1 location | 3,862 | 90,181 | ✓ | none | ✓ (Enhanced CLIP) |
+| **Total** | **~1,512** | **~23,267** | **~140,242** | **✓** | - | - |
 
 ## Dataset-Specific Notes
 
@@ -269,14 +326,15 @@ Each dataset generates a `summary.json`:
 - **Results**: 13,024 frames, ~13,284 3D bboxes
 
 ### Taskonomy
-- **Implementation**: Processes RGB images with derived 3D bboxes from depth + segmentation
+- **Implementation**: Enhanced Two-Stage CLIP Classification Pipeline for semantic labeling
 - **Structure**: Point cloud camera locations with multiple views per point
-- **Semantic Labeling**: Uses GroundingDINO for open-vocabulary object detection
-- **Codebook Approach**: Detects unique instance IDs once, applies to all occurrences
+- **Semantic Labeling**: CLIP-B/16 (Stage A) + SAM + CLIP-L/14 (Stage B) pipeline
+- **Pipeline Architecture**: Fast classification → SAM mask refinement → Strong classification
 - **Label Format**: Converts `object_N` → `semantic_label_N` (e.g., `chair_5`, `table_12`)
-- **Detection**: ~40 indoor object categories (furniture, appliances, structures)
-- **Performance**: 253 unique instances detected in ~19 minutes, applied to 90,181 bboxes
+- **Detection**: 69 indoor object categories with synonym bucket merging
+- **Performance**: 96.4% success rate (244/253 instances), ~2.5 it/s processing speed
 - **Results**: 3,862 views from 1 location (ackermanville), 90,181 3D bboxes with semantic labels
+- **Output**: Enhanced codebook + labeled-only dataset with precise 2D bboxes
 
 ### Hypersim
 - **Implementation**: Processes synthetic indoor scenes
