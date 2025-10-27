@@ -42,7 +42,7 @@ This module processes multiple 3D vision datasets into a unified JSON format for
 - **Key Features**: Real indoor scenes, Enhanced CLIP semantic labeling
 - **Status**: ✅ Fully working - 3,862 views, 90,181 3D bboxes with semantic labels
 
-#### Enhanced CLIP Pipeline (New)
+## Enhanced CLIP Pipeline (New)
 
 The Taskonomy processor now uses an **Enhanced Two-Stage CLIP Classification Pipeline** for superior semantic labeling:
 
@@ -70,6 +70,7 @@ bash setup_enhanced_pipeline.sh
 
 # 3. Run enhanced pipeline
 python build_enhanced_codebook.py
+python build_enhanced_codebook_v2.py
 
 # 4. Create labeled-only dataset
 python create_labeled_dataset.py

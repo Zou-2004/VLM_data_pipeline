@@ -151,9 +151,9 @@ NULL_PROMPTS = [
 ]
 
 # Thresholds
-MARGIN_THRESH_COARSE = 0.005   # Margin for super-category selection
-MARGIN_THRESH_FINE = 0.003     # Margin for fine class selection (Stage A)
-MARGIN_THRESH_FINE_B = 0.0025  # Margin for fine class selection (Stage B)
+MARGIN_THRESH_COARSE = 0.001   # Margin for super-category selection
+MARGIN_THRESH_FINE = 0.0005    # Margin for fine class selection (Stage A)
+MARGIN_THRESH_FINE_B = 0.0005  # Margin for fine class selection (Stage B)
 
 # ============================================================================
 # ENHANCED CLIP CLASSIFIER v2
