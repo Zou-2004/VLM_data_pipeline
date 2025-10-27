@@ -1,0 +1,5 @@
+# Enhanced Classification Pipeline Dependencies
+# Use git+https for latest CLIP that supports modern PyTorch
+git+https://github.com/openai/CLIP.git
+segment-anything
+opencv-python
