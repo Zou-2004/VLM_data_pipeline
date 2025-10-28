@@ -89,6 +89,8 @@ python generate_qa.py --dataset coco
 python generate_qa.py --dataset objectron
 python generate_qa.py --dataset matterport
 python generate_qa.py --dataset sunrgbd
+python generate_qa.py --dataset hyperism
+python generate_qa.py --dataset tasktonomy
 
 # Generate specific task types
 python generate_qa.py --dataset sunrgbd --tasks object_count,object_3d_size

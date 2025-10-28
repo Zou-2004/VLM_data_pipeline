@@ -19,8 +19,6 @@ from config import DATASETS, OUTPUT_DIR, CACHE_DIR
 from utils.data_loader import load_dataset_files, filter_by_bbox_availability
 
 # Import task generators
-from tasks.tasks_2d.object_count_2d_qa import ObjectCount2DQA
-from tasks.tasks_2d.object_2d_size_qa import Object2DSizeQA
 from tasks.tasks_3d.object_count_qa import ObjectCount3DQA
 from tasks.tasks_3d.object_3d_size_qa import Object3DSizeQA
 from tasks.tasks_3d.cam_obj_distance_qa import CameraObjectDistanceQA
@@ -32,9 +30,6 @@ from tasks.tasks_3d.obj_obj_rel_pos_qa import ObjectObjectRelativePositionQA
 # Task generator mapping
 TASK_GENERATORS = {
     'object_count': ObjectCount3DQA,  # 3D object counting
-    'obj_count_2d': ObjectCount2DQA,
-    'obj_2d_size': Object2DSizeQA,
-    'bbox_2d_size': None,  # Deprecated, use obj_2d_size
     'object_3d_size': Object3DSizeQA,
     'cam_obj_distance': CameraObjectDistanceQA,
     'obj_obj_distance': ObjectObjectDistanceQA,

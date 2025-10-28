@@ -68,11 +68,6 @@ The Taskonomy processor uses an **Enhanced Two-Stage CLIP Classification Pipelin
    bash setup_enhanced_pipeline.sh
    ```
 
-3. **Run enhanced pipeline** (requires processed Taskonomy data):
-   ```bash
-   python build_enhanced_codebook.py
-   ```
-
 **Model Components**:
 - **CLIP Models**: ViT-B/16 (fast), ViT-L/14 (strong)
 - **SAM Model**: `sam_vit_h_4b8939.pth` for mask refinement
@@ -147,6 +142,12 @@ VLM_data_pipeline/
 │   ├── tasks/                   # Task-specific QA generators
 │   └── output/                  # Generated QA pairs (485K+ questions)
 ├── raw_data/                    # Downloaded raw datasets
+│   ├── embodiedscan-v2          #
+│   ├── Hyperism                 #ai_001_001,ai001_002,...
+│   ├── Objectron                #annotations,videos
+│   ├── SUNRGBD        
+│   └── tasktonomy_dataset
+│   └── v1                       #Matterport dataset
 └── processed_data/              # Processed output (25K+ images)
 ```
 
