@@ -50,6 +50,7 @@ class MatterportProcessor:
         import pickle
         
         corrections = {}
+        self.category_mapping = {}  # Will store label_id -> category_name
         
         # Load train and val pickle files
         for split in ['train', 'val']:
@@ -61,6 +62,13 @@ class MatterportProcessor:
             try:
                 with open(pkl_file, 'rb') as f:
                     data = pickle.load(f)
+                
+                # Load category mapping from metainfo (only need to do once)
+                if not self.category_mapping and 'metainfo' in data and 'categories' in data['metainfo']:
+                    # EmbodiedScan stores categories as {name: id}, we need {id: name}
+                    categories = data['metainfo']['categories']
+                    self.category_mapping = {v: k for k, v in categories.items()}
+                    logger.info(f"Loaded {len(self.category_mapping)} category labels from EmbodiedScan")
                 
                 # data is a dict with 'data_list'
                 for item in data.get('data_list', []):
@@ -195,8 +203,10 @@ class MatterportProcessor:
                             rotation=rotation,
                             rotation_format="euler"
                         )
-                        bbox_9dof['category'] = f"class_{box_data['label']}"
-                        bbox_9dof['label_id'] = int(box_data['label'])
+                        # Use semantic label from EmbodiedScan category mapping
+                        label_id = int(box_data['label'])
+                        bbox_9dof['category'] = self.category_mapping.get(label_id, f"class_{label_id}")
+                        bbox_9dof['label_id'] = label_id
                         
                         bboxes_3d.append(bbox_9dof)
                 
