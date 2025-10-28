@@ -404,17 +404,15 @@ def improved_distance_camera_to_bbox(camera_data: Dict, bbox: Dict) -> Optional[
     
     Args:
         camera_data: Camera data dictionary
-        bbox: 3D bounding box dictionary
+        bbox: 3D bounding box dictionary (already in camera space)
         
     Returns:
         Distance in meters or None if calculation failed
     """
-    # Method 1: Use extrinsics for accurate camera position
-    camera_pos = get_camera_position(camera_data)
-    if camera_pos is not None:
-        return distance_camera_to_bbox(camera_pos, bbox)
+    # CRITICAL FIX: Bboxes are ALREADY in camera space (camera at origin)
+    # after dataset processing fixes. We should NOT use world-space camera position.
+    # Simply compute distance from camera (origin) to bbox center.
     
-    # Method 2: Fallback to bbox center distance (camera at origin)
     try:
         center = get_bbox_center(bbox)
         # Camera is at origin in camera coordinates
