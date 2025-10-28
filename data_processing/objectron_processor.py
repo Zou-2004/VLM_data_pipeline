@@ -165,7 +165,17 @@ class ObjectronProcessor:
                     
                     # In Objectron, keypoint 0 is the center
                     # Keypoints 1-8 define the 8 corners of the bbox
-                    center = keypoints_3d[0]  # Center point
+                    center_opengl = keypoints_3d[0]  # Center point in OpenGL convention
+                    
+                    # Convert from OpenGL to CV convention:
+                    # OpenGL: X right, Y up, Z backward (-Z forward)
+                    # CV:     X right, Y down, Z forward
+                    # Transformation: x_cv = x_gl, y_cv = -y_gl, z_cv = -z_gl
+                    center = np.array([
+                        center_opengl[0],    # X: keep as is
+                        -center_opengl[1],   # Y: flip (up → down)
+                        -center_opengl[2]    # Z: flip (backward → forward)
+                    ])
                     
                     # Calculate dimensions from corner points
                     # Use distances between opposite corners
@@ -320,3 +330,19 @@ class ObjectronProcessor:
         logger.info(f"Objectron processing complete: {summary['total_frames']} frames from {summary['total_categories']} categories")
         
         return all_data
+
+
+if __name__ == "__main__":
+    import argparse
+    
+    parser = argparse.ArgumentParser(description='Process Objectron dataset')
+    parser.add_argument('--input', type=str, required=True, help='Path to raw Objectron data')
+    parser.add_argument('--output', type=str, required=True, help='Path to output directory')
+    args = parser.parse_args()
+    
+    processor = ObjectronProcessor(
+        raw_data_dir=Path(args.input),
+        output_dir=Path(args.output)
+    )
+    processor.process_all()
+    logger.info("✅ Objectron processing complete!")

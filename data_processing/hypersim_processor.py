@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Dict, List, Tuple, Optional
 import logging
 
-from utils import convert_bbox_to_9dof, compute_depth_stats, save_json, load_json
+from utils import convert_bbox_to_9dof, compute_depth_stats, save_json, load_json, world_to_camera_frame
 
 # Set up logging
 logging.basicConfig(
@@ -267,7 +267,7 @@ def process_frame(
             [0, 0, 1]
         ]
         
-        # Load camera extrinsics (pose)
+        # Load camera extrinsics (pose) - kept for reference but not used for bbox transform
         extrinsics_matrix = load_camera_poses(detail_dir, camera_name, frame_id)
         
         # Process 3D bounding boxes for visible instances
@@ -288,10 +288,15 @@ def process_frame(
             rotation_matrix = np.array(bbox['orientation'])
             pitch, yaw, roll = rotation_matrix_to_euler(rotation_matrix)
             
-            # Convert to 9-DoF format
+            # NOTE: Hypersim bboxes are ALREADY in camera space!
+            # The filename says "object_aligned_2d" but these are 3D positions in camera coordinates
+            # The positions are already relative to the camera, no transformation needed
+            center_camera = np.array(bbox['position'])
+            
+            # Convert to 9-DoF format in camera space
             # Hypersim: position is center, extents are [width, height, depth]
             bbox_9dof = convert_bbox_to_9dof(
-                center=bbox['position'],
+                center=center_camera,  # Now in camera space
                 dimensions=bbox['extents'],
                 rotation=[pitch, yaw, roll],
                 rotation_format='euler'

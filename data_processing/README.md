@@ -183,6 +183,8 @@ The Taskonomy processor uses an **Enhanced Two-Stage CLIP Classification Pipelin
 
 ```bash
 cd data_processing
+git clone https://github.com/google-research-datasets/Objectron.git
+
 python process_all.py --raw-data-dir ../raw_data --output-dir ../processed_data
 ```
 

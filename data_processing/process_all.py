@@ -9,6 +9,7 @@ import logging
 from pathlib import Path
 import sys
 
+from hypersim_processor import HypersimProcessor
 from sunrgbd_processor import SUNRGBDProcessor
 from matterport_processor import MatterportProcessor
 from objectron_processor import ObjectronProcessor
@@ -32,6 +33,10 @@ class MasterProcessor:
         self.output_dir.mkdir(parents=True, exist_ok=True)
         
         self.processors = {
+            "hypersim": lambda: HypersimProcessor(
+                self.raw_data_dir / "Hyperism",
+                self.output_dir / "hypersim"
+            ),
             "sunrgbd": lambda: SUNRGBDProcessor(
                 self.raw_data_dir / "SUNRGBD",
                 self.output_dir / "sunrgbd"
