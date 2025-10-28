@@ -219,7 +219,8 @@ def process_frame(
     frame_id: int,
     object_map: Dict[int, Dict],
     bboxes_3d: Dict[int, Dict],
-    detail_dir: Path
+    detail_dir: Path,
+    meters_per_asset_unit: float = 1.0
 ) -> Optional[Dict]:
     """Process a single frame from Hypersim dataset."""
     
@@ -288,16 +289,42 @@ def process_frame(
             rotation_matrix = np.array(bbox['orientation'])
             pitch, yaw, roll = rotation_matrix_to_euler(rotation_matrix)
             
-            # NOTE: Hypersim bboxes are ALREADY in camera space!
-            # The filename says "object_aligned_2d" but these are 3D positions in camera coordinates
-            # The positions are already relative to the camera, no transformation needed
-            center_camera = np.array(bbox['position'])
+            # CRITICAL FIX: Hypersim bbox positions are in WORLD SPACE using ASSET UNITS
+            # Camera poses are ALSO in asset units!
+            # 1. Transform from world-space to camera-space (both in asset units)
+            # 2. Convert from OpenGL (Z backward) to VST/CV (Z forward) convention
+            # 3. Convert from asset units to meters
+            
+            center_world_asset_units = np.array(bbox['position'])
+            center_world_homogeneous = np.append(center_world_asset_units, 1.0)
+            
+            # Invert the camera-to-world matrix (in asset units) to get world-to-camera
+            camera_to_world = np.array(extrinsics_matrix)
+            world_to_camera = np.linalg.inv(camera_to_world)
+            
+            # Transform world position to camera space (still in asset units)
+            center_camera_homogeneous = world_to_camera @ center_world_homogeneous
+            center_camera_opengl_asset_units = center_camera_homogeneous[:3]
+            
+            # Hypersim uses OpenGL convention (Y up, Z backward)
+            # Convert to VST/CV convention (Y down, Z forward)
+            center_camera_asset_units = np.array([
+                center_camera_opengl_asset_units[0],    # X: keep (right)
+                -center_camera_opengl_asset_units[1],   # Y: flip (down)
+                -center_camera_opengl_asset_units[2]    # Z: flip (forward)
+            ])
+            
+            # Now convert from asset units to meters
+            center_camera = center_camera_asset_units * meters_per_asset_unit
+            
+            # Also scale dimensions from asset units to meters
+            dimensions_meters = [d * meters_per_asset_unit for d in bbox['extents']]
             
             # Convert to 9-DoF format in camera space
             # Hypersim: position is center, extents are [width, height, depth]
             bbox_9dof = convert_bbox_to_9dof(
-                center=center_camera,  # Now in camera space
-                dimensions=bbox['extents'],
+                center=center_camera,  # Now in camera space with correct units and convention
+                dimensions=dimensions_meters,  # Now in meters
                 rotation=[pitch, yaw, roll],
                 rotation_format='euler'
             )
@@ -357,6 +384,20 @@ def process_scene(scene_dir: Path) -> Tuple[int, int]:
         logger.warning(f"Skipping {scene_name}: Missing detail or mesh directory")
         return 0, 0
     
+    # Load scene metadata to get asset-to-meter scale factor
+    import csv
+    scene_metadata_file = detail_dir / 'metadata_scene.csv'
+    meters_per_asset_unit = 1.0  # default if not found
+    if scene_metadata_file.exists():
+        with open(scene_metadata_file, 'r') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                if row['parameter_name'] == 'meters_per_asset_unit':
+                    meters_per_asset_unit = float(row['parameter_value'])
+                    break
+    
+    logger.info(f"  Scale: {meters_per_asset_unit:.6f} meters per asset unit")
+    
     # Load metadata
     object_map = load_object_metadata(detail_dir)
     bboxes_3d = load_3d_bounding_boxes(mesh_dir)
@@ -395,7 +436,7 @@ def process_scene(scene_dir: Path) -> Tuple[int, int]:
             # Extract frame number
             frame_id = int(frame_file.stem.split('.')[1])
             
-            result = process_frame(scene_dir, camera_name, frame_id, object_map, bboxes_3d, detail_dir)
+            result = process_frame(scene_dir, camera_name, frame_id, object_map, bboxes_3d, detail_dir, meters_per_asset_unit)
             
             if result:
                 # Save to output directory
