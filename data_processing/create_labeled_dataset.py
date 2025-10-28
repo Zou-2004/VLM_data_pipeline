@@ -118,18 +118,19 @@ def create_labeled_dataset(
                 continue
             
             if instance_id in labeled_instance_ids:
-                # Update object_id with semantic label
+                # Update object_id with semantic label (add pseudo_ prefix for Enhanced CLIP labels)
                 semantic_label = codebook[instance_id]
+                pseudo_label = f"pseudo_{semantic_label}"
                 bbox_3d_labeled = bbox_3d.copy()
-                bbox_3d_labeled['object_id'] = f"{semantic_label}_{instance_id}"
-                bbox_3d_labeled['category'] = semantic_label
+                bbox_3d_labeled['object_id'] = f"{pseudo_label}_{instance_id}"
+                bbox_3d_labeled['category'] = pseudo_label
                 labeled_bboxes_3d.append(bbox_3d_labeled)
                 
                 # Also update corresponding 2D bbox if it exists
                 if i < len(data.get('bounding_boxes_2d', [])):
                     bbox_2d = data['bounding_boxes_2d'][i].copy()
-                    bbox_2d['object_id'] = f"{semantic_label}_{instance_id}"
-                    bbox_2d['category'] = semantic_label
+                    bbox_2d['object_id'] = f"{pseudo_label}_{instance_id}"
+                    bbox_2d['category'] = pseudo_label
                     labeled_bboxes_2d.append(bbox_2d)
         
         # Only save files that have labeled objects

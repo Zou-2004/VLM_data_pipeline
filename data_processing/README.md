@@ -68,7 +68,7 @@ pip install -r enhanced_requirements.txt
 # 2. Download SAM model
 bash setup_enhanced_pipeline.sh
 
-# 3. Run enhanced pipeline
+# 3. Run enhanced pipeline, may need to adjust threshold
 python build_enhanced_codebook.py
 python build_enhanced_codebook_v2.py
 
@@ -83,6 +83,13 @@ python visualize_enhanced_results.py
 - `enhanced_label_codebook.json` - Instance ID to semantic label mapping
 - `../processed_data/taskonomy_labeled/` - JSON files with only labeled objects
 - `enhanced_clip_results.png` - Visualization of classification examples
+
+**Pseudo-Label Convention**:
+All Enhanced CLIP labels are prefixed with `pseudo_` to clearly indicate they are automatically generated labels, not ground-truth annotations:
+- Example categories: `pseudo_chair`, `pseudo_table`, `pseudo_tv`
+- Example object_ids: `pseudo_chair_42`, `pseudo_lamp_18`
+
+This convention ensures transparency about the label source and prevents confusion with manually annotated ground-truth labels.
 
 ## Installation
 
