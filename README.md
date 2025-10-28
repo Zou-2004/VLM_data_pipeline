@@ -41,6 +41,7 @@ conda activate data_pipeline
 
 #install download dependincies
 cd dataset_downloaders
+sudo apt-get install aria2
 pip install -r requirements.txt && cd ..
 
 # Install processing dependencies
@@ -96,9 +97,10 @@ python process_all.py --raw-data-dir ../raw_data --output-dir ../processed_data
 # Taskonomy with Semantic Labeling
 #### Taskonomy with Enhanced CLIP Semantic Labeling
 
-```bash
+
 # 1. Build enhanced codebook (requires processed Taskonomy data)
 python build_enhanced_codebook.py
+python build_enhanced_codebook_v2.py #more strict version
 
 # 2. Create labeled-only dataset
 python create_labeled_dataset.py
